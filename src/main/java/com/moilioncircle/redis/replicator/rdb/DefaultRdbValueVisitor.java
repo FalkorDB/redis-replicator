@@ -500,6 +500,11 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
     public <T> T applyStreamListPacks3(RedisInputStream in, int version) throws IOException {
         return applyStreamListPacks(in, version, Constants.RDB_TYPE_STREAM_LISTPACKS_3);
     }
+
+    @Override
+    public <T> T applyStreamListPacks4(RedisInputStream in, int version) throws IOException {
+        return applyStreamListPacks(in, version, Constants.RDB_TYPE_STREAM_LISTPACKS_4);
+    }
     
     @SuppressWarnings("resource")
     protected <T> T applyStreamListPacks(RedisInputStream in, int version, int type) throws IOException {
@@ -654,6 +659,23 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
             group.setPendingEntries(groupPendingEntries);
             group.setConsumers(consumers);
             groups.add(group);
+        }
+
+        if (type >= Constants.RDB_TYPE_STREAM_LISTPACKS_4) {
+            parser.rdbLoadLen(); // idmp_duration
+            parser.rdbLoadLen(); // idmp_max_entries
+            long producers = parser.rdbLoadLen().len;
+            while (producers-- > 0) {
+                parser.rdbLoadPlainStringObject(); // producer id
+                long idmpEntries = parser.rdbLoadLen().len;
+                while (idmpEntries-- > 0) {
+                    parser.rdbLoadPlainStringObject(); // iid
+                    parser.rdbLoadLen(); // stream id ms
+                    parser.rdbLoadLen(); // stream id seq
+                }
+            }
+            parser.rdbLoadLen(); // iids_added
+            parser.rdbLoadLen(); // iids_duplicates
         }
     
         stream.setLastId(lastId);

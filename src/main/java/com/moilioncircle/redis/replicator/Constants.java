@@ -101,6 +101,7 @@ public class Constants {
     public static final int RDB_TYPE_HASH_LISTPACK_EX_PRE_GA = 23; /* Hash LP with HFEs. Doesn't attach min TTL at start (7.4 RC) */
     public static final int RDB_TYPE_HASH_METADATA = 24; /* Hash with HFEs. Attach min TTL at start */
     public static final int RDB_TYPE_HASH_LISTPACK_EX = 25; /* Hash LP with HFEs. Attach min TTL at start */
+    public static final int RDB_TYPE_STREAM_LISTPACKS_4 = 26; /* Stream with IDMP support */
 
     /**
      * Module serialized values sub opcodes

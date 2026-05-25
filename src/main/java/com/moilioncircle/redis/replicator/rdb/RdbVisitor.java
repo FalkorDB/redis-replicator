@@ -195,6 +195,10 @@ public abstract class RdbVisitor {
         throw new UnsupportedOperationException("must implement this method.");
     }
 
+    public Event applyStreamListPacks4(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
     public Event applyHashMetadataPreGa(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
         throw new UnsupportedOperationException("must implement this method.");
     }

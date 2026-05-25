@@ -832,6 +832,68 @@ public class DumpRdbValueVisitor extends DefaultRdbValueVisitor {
     }
 
     @Override
+    public <T> T applyStreamListPacks4(RedisInputStream in, int version) throws IOException {
+        DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_STREAM_LISTPACKS_4, version);
+        replicator.addRawByteListener(listener);
+        try {
+            SkipRdbParser skipParser = new SkipRdbParser(in);
+            long listPacks = skipParser.rdbLoadLen().len;
+            while (listPacks-- > 0) {
+                skipParser.rdbLoadPlainStringObject();
+                skipParser.rdbLoadPlainStringObject();
+            }
+            skipParser.rdbLoadLen(); // length
+            skipParser.rdbLoadLen(); // lastId
+            skipParser.rdbLoadLen(); // lastId
+            skipParser.rdbLoadLen(); // firstId
+            skipParser.rdbLoadLen(); // firstId
+            skipParser.rdbLoadLen(); // maxDeletedEntryId
+            skipParser.rdbLoadLen(); // maxDeletedEntryId
+            skipParser.rdbLoadLen(); // entriesAdded
+            long groupCount = skipParser.rdbLoadLen().len;
+            while (groupCount-- > 0) {
+                skipParser.rdbLoadPlainStringObject();
+                skipParser.rdbLoadLen();
+                skipParser.rdbLoadLen();
+                skipParser.rdbLoadLen(); // entriesRead
+                long groupPel = skipParser.rdbLoadLen().len;
+                while (groupPel-- > 0) {
+                    in.skip(16);
+                    skipParser.rdbLoadMillisecondTime();
+                    skipParser.rdbLoadLen();
+                }
+                long consumerCount = skipParser.rdbLoadLen().len;
+                while (consumerCount-- > 0) {
+                    skipParser.rdbLoadPlainStringObject();
+                    skipParser.rdbLoadMillisecondTime(); // seenTime
+                    skipParser.rdbLoadMillisecondTime(); // activeTime
+                    long consumerPel = skipParser.rdbLoadLen().len;
+                    while (consumerPel-- > 0) {
+                        in.skip(16);
+                    }
+                }
+            }
+            skipParser.rdbLoadLen(); // idmp_duration
+            skipParser.rdbLoadLen(); // idmp_max_entries
+            long producers = skipParser.rdbLoadLen().len;
+            while (producers-- > 0) {
+                skipParser.rdbLoadPlainStringObject(); // producer id
+                long idmpEntries = skipParser.rdbLoadLen().len;
+                while (idmpEntries-- > 0) {
+                    skipParser.rdbLoadPlainStringObject(); // iid
+                    skipParser.rdbLoadLen(); // stream id ms
+                    skipParser.rdbLoadLen(); // stream id seq
+                }
+            }
+            skipParser.rdbLoadLen(); // iids_added
+            skipParser.rdbLoadLen(); // iids_duplicates
+        } finally {
+            replicator.removeRawByteListener(listener);
+        }
+        return (T) listener.getBytes();
+    }
+
+    @Override
     public <T> T applyHashMetadata(RedisInputStream in, int version) throws IOException {
         DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_HASH_METADATA, version);
         replicator.addRawByteListener(listener);

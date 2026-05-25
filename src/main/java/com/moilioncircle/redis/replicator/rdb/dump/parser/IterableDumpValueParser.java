@@ -139,6 +139,8 @@ public class IterableDumpValueParser implements DumpValueParser {
                     return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks2(in, 0));
                 case RDB_TYPE_STREAM_LISTPACKS_3:
                     return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks3(in, 0));
+                case RDB_TYPE_STREAM_LISTPACKS_4:
+                    return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks4(in, 0));
                 case RDB_TYPE_HASH_METADATA:
                     return KeyValuePairs.iterHash(kv, valueVisitor.applyHashMetadata(in, 0));
                 case RDB_TYPE_HASH_LISTPACK_EX:

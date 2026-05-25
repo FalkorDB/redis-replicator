@@ -343,6 +343,17 @@ public class DumpRdbVisitor extends DefaultRdbVisitor {
     }
 
     @Override
+    public Event applyStreamListPacks4(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o26 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        o26.setValueRdbType(RDB_TYPE_STREAM_LISTPACKS_4);
+        o26.setKey(key);
+        o26.setValue(valueVisitor.applyStreamListPacks4(in, version));
+        return context.valueOf(o26);
+    }
+
+    @Override
     public Event applyHashMetadata(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
         BaseRdbParser parser = new BaseRdbParser(in);
         KeyValuePair<byte[], byte[]> o24 = new DumpKeyValuePair();

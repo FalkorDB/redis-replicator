@@ -520,6 +520,20 @@ public class DefaultRdbVisitor extends RdbVisitor {
     }
 
     @Override
+    @SuppressWarnings("resource")
+    public Event applyStreamListPacks4(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Stream> o26 = new KeyStringValueStream();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        Stream stream = valueVisitor.applyStreamListPacks4(in, version);
+        o26.setValueRdbType(RDB_TYPE_STREAM_LISTPACKS_4);
+        o26.setValue(stream);
+        o26.setKey(key);
+        return context.valueOf(o26);
+    }
+
+    @Override
     public Event applyHashMetadata(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
         BaseRdbParser parser = new BaseRdbParser(in);
         KeyValuePair<byte[], Map<byte[], byte[]>> o24 = new KeyStringValueHash();
@@ -601,6 +615,8 @@ public class DefaultRdbVisitor extends RdbVisitor {
                 return (KeyValuePair<?, ?>) applyStreamListPacks2(in, version, context);
             case RDB_TYPE_STREAM_LISTPACKS_3:
                 return (KeyValuePair<?, ?>) applyStreamListPacks3(in, version, context);
+            case RDB_TYPE_STREAM_LISTPACKS_4:
+                return (KeyValuePair<?, ?>) applyStreamListPacks4(in, version, context);
             case RDB_TYPE_HASH_METADATA:
                 return (KeyValuePair<?, ?>) applyHashMetadata(in, version, context);
             case RDB_TYPE_HASH_LISTPACK_EX:

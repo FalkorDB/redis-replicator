@@ -310,6 +310,14 @@ public class SkipRdbVisitor extends DefaultRdbVisitor {
     }
 
     @Override
+    public Event applyStreamListPacks4(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        SkipRdbParser parser = new SkipRdbParser(in);
+        parser.rdbLoadEncodedStringObject();
+        valueVisitor.applyStreamListPacks4(in, version);
+        return null;
+    }
+
+    @Override
     public Event applyHashMetadata(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
         SkipRdbParser parser = new SkipRdbParser(in);
         parser.rdbLoadEncodedStringObject();
