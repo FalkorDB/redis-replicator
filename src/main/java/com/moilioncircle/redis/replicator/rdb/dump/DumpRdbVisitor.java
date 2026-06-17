@@ -394,39 +394,4 @@ public class DumpRdbVisitor extends DefaultRdbVisitor {
         o21.setValue(valueVisitor.applyStreamListPacks3(in, version));
         return context.valueOf(o21);
     }
-
-    @Override
-    public Event applyStreamListPacks4(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
-        BaseRdbParser parser = new BaseRdbParser(in);
-        KeyValuePair<byte[], byte[]> o26 = new DumpKeyValuePair();
-        byte[] key = parser.rdbLoadEncodedStringObject().first();
-        o26.setValueRdbType(RDB_TYPE_STREAM_LISTPACKS_4);
-        o26.setKey(key);
-        o26.setValue(valueVisitor.applyStreamListPacks4(in, version));
-        return context.valueOf(o26);
-    }
-
-    @Override
-    public Event applyHashMetadata(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
-        BaseRdbParser parser = new BaseRdbParser(in);
-        KeyValuePair<byte[], byte[]> o24 = new DumpKeyValuePair();
-        byte[] key = parser.rdbLoadEncodedStringObject().first();
-
-        o24.setValueRdbType(RDB_TYPE_HASH_METADATA);
-        o24.setKey(key);
-        o24.setValue(valueVisitor.applyHashMetadata(in, version));
-        return context.valueOf(o24);
-    }
-
-    @Override
-    public Event applyHashListPackEx(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
-        BaseRdbParser parser = new BaseRdbParser(in);
-        KeyValuePair<byte[], byte[]> o25 = new DumpKeyValuePair();
-        byte[] key = parser.rdbLoadEncodedStringObject().first();
-
-        o25.setValueRdbType(RDB_TYPE_HASH_LISTPACK_EX);
-        o25.setKey(key);
-        o25.setValue(valueVisitor.applyHashListPackEx(in, version));
-        return context.valueOf(o25);
-    }
 }

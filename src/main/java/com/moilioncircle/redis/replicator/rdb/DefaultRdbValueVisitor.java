@@ -557,11 +557,6 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
     public <T> T applyStreamListPacks3(RedisInputStream in, int version) throws IOException {
         return applyStreamListPacks(in, version, Constants.RDB_TYPE_STREAM_LISTPACKS_3);
     }
-
-    @Override
-    public <T> T applyStreamListPacks4(RedisInputStream in, int version) throws IOException {
-        return applyStreamListPacks(in, version, Constants.RDB_TYPE_STREAM_LISTPACKS_4);
-    }
     
     @SuppressWarnings("resource")
     protected <T> T applyStreamListPacks(RedisInputStream in, int version, int type) throws IOException {
@@ -717,23 +712,6 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
             group.setConsumers(consumers);
             groups.add(group);
         }
-
-        if (type >= Constants.RDB_TYPE_STREAM_LISTPACKS_4) {
-            parser.rdbLoadLen(); // idmp_duration
-            parser.rdbLoadLen(); // idmp_max_entries
-            long producers = parser.rdbLoadLen().len;
-            while (producers-- > 0) {
-                parser.rdbLoadPlainStringObject(); // producer id
-                long idmpEntries = parser.rdbLoadLen().len;
-                while (idmpEntries-- > 0) {
-                    parser.rdbLoadPlainStringObject(); // iid
-                    parser.rdbLoadLen(); // stream id ms
-                    parser.rdbLoadLen(); // stream id seq
-                }
-            }
-            parser.rdbLoadLen(); // iids_added
-            parser.rdbLoadLen(); // iids_duplicates
-        }
     
         stream.setLastId(lastId);
         if (type >= Constants.RDB_TYPE_STREAM_LISTPACKS_2) {
@@ -746,59 +724,5 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
         stream.setGroups(groups);
     
         return (T) stream;
-    }
-
-    @Override
-    public <T> T applyHashMetadata(RedisInputStream in, int version) throws IOException {
-        BaseRdbParser parser = new BaseRdbParser(in);
-
-        long minExpire = parser.rdbLoadMillisecondTime();
-
-        long len = parser.rdbLoadLen().len;
-        ByteArrayMap map = new ByteArrayMap();
-        while (len > 0) {
-            long ttl = parser.rdbLoadLen().len;
-            long expireAt = (ttl != 0) ? (ttl + minExpire - 1) : 0;
-
-            byte[] field = expireAt == 0 ?
-                    parser.rdbGenericLoadStringObject(RDB_LOAD_HFLD).first() :
-                    parser.rdbGenericLoadStringObject(RDB_LOAD_HFLD_TTL).first();
-
-            byte[] value = parser.rdbLoadPlainStringObject().first();
-
-            map.put(field, value);
-
-            len--;
-        }
-
-        return (T) map;
-    }
-
-    public <T> T applyHashListPackEx(RedisInputStream in, int version) throws IOException {
-        BaseRdbParser parser = new BaseRdbParser(in);
-
-        long minExpire = parser.rdbLoadMillisecondTime();
-
-        RedisInputStream listPack = new RedisInputStream(parser.rdbLoadPlainStringObject());
-        ByteArrayMap map = new ByteArrayMap();
-        listPack.skip(4); // total-bytes
-        int len = listPack.readInt(2);
-        while (len > 0) {
-            byte[] field = listPackEntry(listPack);
-            len--;
-            byte[] value = listPackEntry(listPack);
-            len--;
-            byte[] ttl = listPackEntry(listPack);
-            len--;
-
-            map.put(field, value);
-        }
-
-        int lpend = listPack.read(); // lp-end
-        if (lpend != 255) {
-            throw new AssertionError("listpack expect 255 but " + lpend);
-        }
-
-        return (T) map;
     }
 }

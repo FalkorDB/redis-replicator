@@ -88,7 +88,7 @@ public enum Flavor implements FlavorSupport {
         throw new AssertionError(flavor);
     }
 
-    private static final int RDB_VERSION = 12;
+    private static final int RDB_VERSION = 13;
     private static final int VALKEY_VERSION = 80;
     
     private static final Map<String, Integer> REDIS_VERSIONS = new HashMap<>();

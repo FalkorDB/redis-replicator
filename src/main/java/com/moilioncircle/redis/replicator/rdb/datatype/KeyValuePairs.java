@@ -211,6 +211,19 @@ public class KeyValuePairs {
         target.setEvictValue(source.getEvictValue());
         target.setValueRdbType(source.getValueRdbType());
         target.setKey(source.getKey());
+    }
+
+    private static void copy(KeyValuePair<byte[], ?> source, BatchedKeyValuePair<byte[], ?> target, int batch, boolean last) {
+        target.setContext(source.getContext());
+        target.setDb(source.getDb());
+        target.setSlot(source.getSlot());
+        target.setSlotInfo(source.getSlotInfo());
+        target.setExpiredType(source.getExpiredType());
+        target.setExpiredValue(source.getExpiredValue());
+        target.setEvictType(source.getEvictType());
+        target.setEvictValue(source.getEvictValue());
+        target.setValueRdbType(source.getValueRdbType());
+        target.setKey(source.getKey());
         target.setBatch(batch);
         target.setLast(last);
     }

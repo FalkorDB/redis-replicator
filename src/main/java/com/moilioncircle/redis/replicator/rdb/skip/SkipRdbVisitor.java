@@ -142,15 +142,6 @@ public class SkipRdbVisitor extends DefaultRdbVisitor {
     }
 
     @Override
-    public SlotInfo applySlotInfo(RedisInputStream in, int version) throws IOException {
-        SkipRdbParser parser = new SkipRdbParser(in);
-        parser.rdbLoadLen();
-        parser.rdbLoadLen();
-        parser.rdbLoadLen();
-        return null;
-    }
-
-    @Override
     public Event applyString(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
         SkipRdbParser parser = new SkipRdbParser(in);
         parser.rdbLoadEncodedStringObject();
@@ -339,30 +330,6 @@ public class SkipRdbVisitor extends DefaultRdbVisitor {
         SkipRdbParser parser = new SkipRdbParser(in);
         parser.rdbLoadEncodedStringObject();
         valueVisitor.applyStreamListPacks3(in, version);
-        return null;
-    }
-
-    @Override
-    public Event applyStreamListPacks4(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
-        SkipRdbParser parser = new SkipRdbParser(in);
-        parser.rdbLoadEncodedStringObject();
-        valueVisitor.applyStreamListPacks4(in, version);
-        return null;
-    }
-
-    @Override
-    public Event applyHashMetadata(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
-        SkipRdbParser parser = new SkipRdbParser(in);
-        parser.rdbLoadEncodedStringObject();
-        valueVisitor.applyHashMetadata(in, version);
-        return null;
-    }
-
-    @Override
-    public Event applyHashListPackEx(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
-        SkipRdbParser parser = new SkipRdbParser(in);
-        parser.rdbLoadEncodedStringObject();
-        valueVisitor.applyHashListPackEx(in, version);
         return null;
     }
 }

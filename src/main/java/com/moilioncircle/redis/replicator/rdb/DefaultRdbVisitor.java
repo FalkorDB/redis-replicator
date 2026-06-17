@@ -29,6 +29,7 @@ import com.moilioncircle.redis.replicator.rdb.datatype.Module;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.moilioncircle.redis.replicator.Flavor;
 import com.moilioncircle.redis.replicator.FlavorSupport;
 import com.moilioncircle.redis.replicator.Replicator;
 import com.moilioncircle.redis.replicator.event.Event;
@@ -72,7 +73,7 @@ public class DefaultRdbVisitor extends RdbVisitor {
 
     @Override
     public int applyVersion(RedisInputStream in) throws IOException {
-        final FlavorSupport flavor = replicator.getConfiguration().getFlavor();
+        final FlavorSupport flavor = replicator != null ? replicator.getConfiguration().getFlavor() : Flavor.REDIS;
         int version = parseInt(BaseRdbParser.StringHelper.str(in, 9 - flavor.magic().length()));
         if (!flavor.isValidRdbVersion(version)) {
             throw new UnsupportedOperationException("can't handle RDB format version " + version);
