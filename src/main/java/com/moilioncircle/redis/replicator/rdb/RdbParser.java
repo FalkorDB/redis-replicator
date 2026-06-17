@@ -263,6 +263,9 @@ public class RdbParser {
                 case RDB_TYPE_STREAM_LISTPACKS_3:
                     event = rdbVisitor.applyStreamListPacks3(in, version, kv);
                     break;
+                case RDB_TYPE_STREAM_LISTPACKS_4:
+                    event = rdbVisitor.applyStreamListPacks4(in, version, kv);
+                    break;
                 case RDB_TYPE_HASH_2:
                     event = rdbVisitor.applyHash2(in, version, kv);
                     break;

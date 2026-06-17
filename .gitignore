@@ -28,3 +28,4 @@ hs_err_pid*
 /RDBExport/.DS_Store
 /RDBExport/RDBExport.iml
 /RDBExport/src/.DS_Store
+dump.rdb

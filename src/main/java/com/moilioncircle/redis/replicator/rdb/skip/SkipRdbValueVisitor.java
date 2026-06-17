@@ -378,4 +378,25 @@ public class SkipRdbValueVisitor extends DefaultRdbValueVisitor {
         }
         return null;
     }
+
+    @Override
+    public <T> T applyStreamListPacks4(RedisInputStream in, int version) throws IOException {
+        applyStreamListPacks3(in, version);
+        SkipRdbParser skip = new SkipRdbParser(in);
+        skip.rdbLoadLen(); // idmp_duration
+        skip.rdbLoadLen(); // idmp_max_entries
+        long producers = skip.rdbLoadLen().len;
+        while (producers-- > 0) {
+            skip.rdbLoadPlainStringObject(); // producer id
+            long entries = skip.rdbLoadLen().len;
+            while (entries-- > 0) {
+                skip.rdbLoadPlainStringObject(); // iid
+                skip.rdbLoadLen(); // stream id ms
+                skip.rdbLoadLen(); // stream id seq
+            }
+        }
+        skip.rdbLoadLen(); // iids_added
+        skip.rdbLoadLen(); // iids_duplicates
+        return null;
+    }
 }

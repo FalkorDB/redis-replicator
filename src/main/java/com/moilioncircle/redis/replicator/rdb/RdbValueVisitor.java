@@ -117,6 +117,10 @@ public abstract class RdbValueVisitor {
     public <T> T applyStreamListPacks3(RedisInputStream in, int version) throws IOException {
         throw new UnsupportedOperationException("must implement this method.");
     }
+
+    public <T> T applyStreamListPacks4(RedisInputStream in, int version) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
     
     public <T> T applyHash2(RedisInputStream in, int version) throws IOException {
         throw new UnsupportedOperationException("must implement this method.");
