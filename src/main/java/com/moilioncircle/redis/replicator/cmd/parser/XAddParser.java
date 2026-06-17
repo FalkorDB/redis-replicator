@@ -24,6 +24,7 @@ import static com.moilioncircle.redis.replicator.util.Strings.isEquals;
 import java.util.Objects;
 
 import com.moilioncircle.redis.replicator.cmd.CommandParser;
+import com.moilioncircle.redis.replicator.cmd.impl.DeletionPolicy;
 import com.moilioncircle.redis.replicator.cmd.impl.Limit;
 import com.moilioncircle.redis.replicator.cmd.impl.MaxLen;
 import com.moilioncircle.redis.replicator.cmd.impl.MinId;
@@ -40,6 +41,7 @@ public class XAddParser implements CommandParser<XAddCommand> {
         int idx = 1;
         byte[] key = toBytes(command[idx]);
         idx++;
+        DeletionPolicy policy = null;
         MaxLen maxLen = null;
         MinId minId = null;
         Limit limit = null;
@@ -48,7 +50,13 @@ public class XAddParser implements CommandParser<XAddCommand> {
         ByteArrayMap fields = new ByteArrayMap();
         for (; idx < command.length; idx++) {
             String token = toRune(command[idx]);
-            if (isEquals(token, "MAXLEN")) {
+            if (isEquals(token, "KEEPREF")) {
+                policy = DeletionPolicy.KEEPREF;
+            } else if (isEquals(token, "DELREF")) {
+                policy = DeletionPolicy.DELREF;
+            } else if (isEquals(token, "ACKED")) {
+                policy = DeletionPolicy.ACKED;
+            } else if (isEquals(token, "MAXLEN")) {
                 idx++;
                 boolean approximation = false;
                 if (Objects.equals(toRune(command[idx]), "~")) {
@@ -89,6 +97,6 @@ public class XAddParser implements CommandParser<XAddCommand> {
             }
         }
     
-        return new XAddCommand(key, maxLen, minId, limit, nomkstream, id, fields);
+        return new XAddCommand(key, policy, maxLen, minId, limit, nomkstream, id, fields);
     }
 }

@@ -29,6 +29,7 @@ public class XAddCommand extends GenericKeyCommand {
 
     private static final long serialVersionUID = 1L;
     
+    private DeletionPolicy policy;
     private MaxLen maxLen;
     private MinId minId;
     private Limit limit;
@@ -40,6 +41,7 @@ public class XAddCommand extends GenericKeyCommand {
         
     }
     
+    @Deprecated
     public XAddCommand(byte[] key, MaxLen maxLen, byte[] id, Map<byte[], byte[]> fields) {
         this(key, maxLen, false, id, fields);
     }
@@ -51,7 +53,9 @@ public class XAddCommand extends GenericKeyCommand {
      * @param id id or *
      * @param fields fields
      * @since 3.5.0
+     * @deprecated by {@link #XAddCommand(byte[], DeletionPolicy, MaxLen, MinId, Limit, boolean, byte[], Map)}
      */
+    @Deprecated
     public XAddCommand(byte[] key, MaxLen maxLen, boolean nomkstream, byte[] id, Map<byte[], byte[]> fields) {
         this(key, maxLen, null, null, nomkstream, id, fields);
     }
@@ -65,15 +69,49 @@ public class XAddCommand extends GenericKeyCommand {
      * @param id id or *
      * @param fields fields
      * @since 3.5.2
+     * @deprecated by {@link #XAddCommand(byte[], MaxLen, MinId, Limit, boolean, byte[], Map)}
      */
+    @Deprecated
     public XAddCommand(byte[] key, MaxLen maxLen, MinId minId, Limit limit, boolean nomkstream, byte[] id, Map<byte[], byte[]> fields) {
+        this(key, null, maxLen, minId, limit, nomkstream, id, fields);
+    }
+    
+    /**
+     * @param key key
+     * @param policy deletion policy since redis 8.2
+     * @param maxLen maxlen
+     * @param minId minId
+     * @param limit limit
+     * @param nomkstream nomkstream since redis 6.2-rc2
+     * @param id id or *
+     * @param fields fields
+     * @since 3.10.0
+     */
+    public XAddCommand(byte[] key, DeletionPolicy policy, MaxLen maxLen, MinId minId, Limit limit, boolean nomkstream, byte[] id, Map<byte[], byte[]> fields) {
         super(key);
+        this.policy = policy;
         this.maxLen = maxLen;
         this.minId = minId;
         this.limit = limit;
         this.nomkstream = nomkstream;
         this.id = id;
         this.fields = fields;
+    }
+    
+    /**
+     * @return policy
+     * @since 3.10.0
+     */
+    public DeletionPolicy getPolicy() {
+        return policy;
+    }
+    
+    /**
+     * @param policy policy
+     * @since 3.10.0
+     */
+    public void setPolicy(DeletionPolicy policy) {
+        this.policy = policy;
     }
     
     public MaxLen getMaxLen() {

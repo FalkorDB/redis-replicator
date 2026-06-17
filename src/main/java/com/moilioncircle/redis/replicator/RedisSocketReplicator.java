@@ -17,6 +17,7 @@
 package com.moilioncircle.redis.replicator;
 
 import static com.moilioncircle.redis.replicator.Constants.DOLLAR;
+import static com.moilioncircle.redis.replicator.Constants.RDB_EOF_MARK_SIZE;
 import static com.moilioncircle.redis.replicator.Constants.STAR;
 import static com.moilioncircle.redis.replicator.RedisSocketReplicator.SyncMode.PSYNC;
 import static com.moilioncircle.redis.replicator.RedisSocketReplicator.SyncMode.SYNC;
@@ -176,8 +177,14 @@ public class RedisSocketReplicator extends AbstractReplicator {
                     in.skip(len);
                 } else {
                     new RdbParser(in, replicator).parse();
-                    // skip 40 bytes delimiter when disk-less replication
-                    if (len == -1) in.skip(40, false);
+                    if (len == -1) {
+                        // Drain the trailing EOF marker in diskless replication.
+                        try {
+                            in.drain(RDB_EOF_MARK_SIZE, false);
+                        } catch (IOException ignored) {
+                            logger.debug("Ignoring IOException reading diskless RDB EOF marker; connection likely closed.", ignored);
+                        }
+                    }
                 }
                 return "OK".getBytes();
             }
@@ -195,6 +202,9 @@ public class RedisSocketReplicator extends AbstractReplicator {
         sendSlaveIp();
         sendSlaveCapa("eof");
         sendSlaveCapa("psync2");
+        if (configuration.getFlavor() == Flavor.VALKEY) {
+            sendSlaveRdbVersion();
+        }
         if (this.replFilters != null) {
             for (ReplFilter filter : this.replFilters) {
                 sendSlaveFilter(filter);
@@ -265,6 +275,29 @@ public class RedisSocketReplicator extends AbstractReplicator {
         logger.warn("[REPLCONF ip-address {}] failed. {}", socket.getLocalAddress().getHostAddress(), reply);
     }
     
+    protected void sendSlaveRdbVersion() throws IOException {
+        send("INFO".getBytes(), "SERVER".getBytes());
+        final String info = Strings.toString(reply());
+        final String versionKey = configuration.getFlavor().prepend("_version:");
+        String version = null;
+        for (String line : info.split("\n")) {
+            if (line.startsWith(versionKey)) {
+                version = line.substring(versionKey.length()).trim();
+                break;
+            }
+        }
+        if (version == null) {
+            throw new AssertionError("[INFO SERVER] failed. " + info);
+        }
+        // REPLCONF rdb-version ${version}
+        logger.info("REPLCONF version {}", version);
+        send("REPLCONF".getBytes(), "version".getBytes(), version.getBytes());
+        final String reply = Strings.toString(reply());
+        logger.info(reply);
+        if (Objects.equals(reply, "OK")) return;
+        logger.warn("[REPLCONF rdb-version {}] failed. {}", version, reply);
+    }
+
     protected void sendSlaveCapa(String cmd) throws IOException {
         // REPLCONF capa eof
         logger.info("REPLCONF capa {}", cmd);

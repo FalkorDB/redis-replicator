@@ -33,6 +33,7 @@ import com.moilioncircle.redis.replicator.event.PreRdbSyncEvent;
 import com.moilioncircle.redis.replicator.io.RedisInputStream;
 import com.moilioncircle.redis.replicator.rdb.datatype.ContextKeyValuePair;
 import com.moilioncircle.redis.replicator.rdb.datatype.DB;
+import com.moilioncircle.redis.replicator.rdb.datatype.Slot;
 
 /**
  * Redis RDB format
@@ -59,11 +60,13 @@ public class RdbParser {
     /**
      * The RDB E-BNF
      * <p>
-     * RDB        =    'REDIS', $version, [AUX], [MODULE_AUX], [FUNCTION], {SELECTDB, [RESIZEDB], {RECORD}}, '0xFF', [$checksum];
+     * RDB        =    'REDIS', $version, [AUX], [MODULE_AUX], [FUNCTION], {SELECTDB, [RESIZEDB],[SLOTINFO] {RECORD}}, '0xFF', [$checksum];
      * <p>
      * RECORD     =    [EXPIRED], [IDLE | FREQ], KEY, VALUE;
      * <p>
      * SELECTDB   =    '0xFE', $length;
+     * <p>
+     * SLOTINFO   =    '0xF4', $length, $length, $length; (*Introduced in rdb version 12*)
      * <p>
      * AUX        =    {'0xFA', $string, $string};            (*Introduced in rdb version 7*)
      * <p>
@@ -123,6 +126,10 @@ public class RdbParser {
      * <p>
      * | $streamlistpacks3);      (*Introduced in rdb version 11*)
      * <p>
+     * | $hashlistpackex);      (*Introduced in rdb version 12*)
+     * <p>
+     * | $hashmetadata);      (*Introduced in rdb version 12*)
+     * <p>
      * @return read bytes
      * @throws IOException when read timeout
      */
@@ -141,7 +148,7 @@ public class RdbParser {
         int version = rdbVisitor.applyVersion(in);
         offset += in.unmark();
         DB db = null;
-        SlotInfo slotInfo = null;
+        Slot slot = null;
         /*
          * rdb
          */
@@ -152,11 +159,8 @@ public class RdbParser {
             int type = rdbVisitor.applyType(in);
             ContextKeyValuePair kv = new ContextKeyValuePair();
             kv.setDb(db);
-            kv.setSlotInfo(slotInfo);
+            kv.setSlot(slot);
             switch (type) {
-                case RDB_OPCODE_SLOT_INFO:
-                    slotInfo = rdbVisitor.applySlotInfo(in, version);
-                    break;
                 case RDB_OPCODE_EXPIRETIME:
                     event = rdbVisitor.applyExpireTime(in, version, kv);
                     break;
@@ -186,6 +190,9 @@ public class RdbParser {
                     break;
                 case RDB_OPCODE_SELECTDB:
                     db = rdbVisitor.applySelectDB(in, version);
+                    break;
+                case RDB_OPCODE_SLOT_INFO:
+                    slot = rdbVisitor.applySlotInfo(in, version);
                     break;
                 case RDB_OPCODE_EOF:
                     long checksum = rdbVisitor.applyEof(in, version);
@@ -256,8 +263,8 @@ public class RdbParser {
                 case RDB_TYPE_STREAM_LISTPACKS_3:
                     event = rdbVisitor.applyStreamListPacks3(in, version, kv);
                     break;
-                case RDB_TYPE_STREAM_LISTPACKS_4:
-                    event = rdbVisitor.applyStreamListPacks4(in, version, kv);
+                case RDB_TYPE_HASH_2:
+                    event = rdbVisitor.applyHash2(in, version, kv);
                     break;
                 case RDB_TYPE_HASH_METADATA:
                     event = rdbVisitor.applyHashMetadata(in, version, kv);

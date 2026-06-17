@@ -31,13 +31,21 @@ import java.util.List;
  * @since 2.1.0
  */
 public class RedisInputStream extends InputStream {
+    /** Read position in {@code buf}; the next byte to consume is {@code buf[head]}. */
     protected int head = 0;
+    /** Write boundary of {@code buf}; valid data occupies {@code buf[head..tail)}. */
     protected int tail = 0;
+    /** Cumulative count of bytes loaded into {@code buf} by all {@link #fill()} calls. */
     protected long total = 0;
+    /** Number of bytes consumed since the last {@link #mark()} call. */
     protected long markLen = 0;
+    /** Internal read-ahead buffer; valid data occupies {@code buf[head..tail)}. */
     protected final byte[] buf;
+    /** Whether byte-counting mode is active; set by {@link #mark()} and cleared by {@link #unmark()}. */
     protected boolean mark = false;
+    /** Underlying stream that {@link #fill()} pulls data from. */
     protected final InputStream in;
+    /** Listeners notified with every byte consumed; {@code null} or empty means no-op. */
     protected List<RawByteListener> rawByteListeners;
 
     public RedisInputStream(ByteArray array) {
@@ -190,10 +198,14 @@ public class RedisInputStream extends InputStream {
 
     @Override
     public int read() throws IOException {
+        return read(true);
+    }
+    
+    private int read(boolean notify) throws IOException {
         if (head >= tail) fill();
         if (mark) markLen += 1;
         byte b = buf[head++];
-        notify(b);
+        if (notify) notify(b);
         return b & 0xff;
     }
 
@@ -256,11 +268,37 @@ public class RedisInputStream extends InputStream {
         return skip(len, true);
     }
 
+    /**
+     * Reads and discards exactly {@code len} bytes, advancing {@code head} one byte
+     * at a time so that it is always up-to-date even when an {@link IOException} is thrown mid-way.
+     * <p>
+     * Unlike {@link #skip(long, boolean)}, which does not advance {@code head} before
+     * calling {@link #fill()} when the buffer is exhausted, this method advances {@code head}
+     * on every byte. If an {@link IOException} is thrown mid-way, the buffer is already
+     * drained up to that point, preventing stale bytes from being misread as RESP by
+     * {@link com.moilioncircle.redis.replicator.cmd.ReplyParser}.
+     *
+     * @param len number of bytes to drain
+     * @param notify notify to RawByteListener
+     * @throws IOException if an I/O error occurs while draining the stream
+     */
+    public void drain(int len, boolean notify) throws IOException {
+        for (int i = 0; i < len; i++) {
+            read(notify);
+        }
+    }
+
     @Override
     public void close() throws IOException {
         in.close();
     }
 
+    /**
+     * Refills {@code buf} from the underlying stream.
+     * Resets {@code head} to 0 and sets {@code tail} to the number of bytes read.
+     * Throws {@link EOFException} if the stream is exhausted, or re-throws any
+     * {@link IOException} (e.g. {@code SocketException}) if the connection is closed.
+     */
     protected void fill() throws IOException {
         tail = in.read(buf, 0, buf.length);
         if (tail == -1) throw new EOFException("end of file or end of stream.");

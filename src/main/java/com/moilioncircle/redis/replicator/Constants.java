@@ -31,6 +31,9 @@ public class Constants {
             '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '_'
     };
     
+    @Deprecated
+    public static final int RDB_VERSION = 12;
+    
     /**
      * len type
      */
@@ -60,7 +63,7 @@ public class Constants {
     /**
      * rdb protocol
      */
-    public static final int RDB_OPCODE_SLOT_INFO = 244;
+    public static final int RDB_OPCODE_SLOT_INFO = 244; /* Individual slot info, such as slot id and size (cluster mode only). */
     public static final int RDB_OPCODE_FUNCTION = 246;
     public static final int RDB_OPCODE_FUNCTION2 = 245;
     public static final int RDB_OPCODE_MODULE_AUX = 247;
@@ -97,12 +100,10 @@ public class Constants {
     public static final int RDB_TYPE_STREAM_LISTPACKS_2 = 19;
     public static final int RDB_TYPE_SET_LISTPACK = 20; /* since redis 7.2 */
     public static final int RDB_TYPE_STREAM_LISTPACKS_3 = 21; /* since redis 7.2 */
-    public static final int RDB_TYPE_HASH_METADATA_PRE_GA = 22; /* Hash with HFEs. Doesn't attach min TTL at start (7.4 RC) */
-    public static final int RDB_TYPE_HASH_LISTPACK_EX_PRE_GA = 23; /* Hash LP with HFEs. Doesn't attach min TTL at start (7.4 RC) */
-    public static final int RDB_TYPE_HASH_METADATA = 24; /* Hash with HFEs. Attach min TTL at start */
-    public static final int RDB_TYPE_HASH_LISTPACK_EX = 25; /* Hash LP with HFEs. Attach min TTL at start */
-    public static final int RDB_TYPE_STREAM_LISTPACKS_4 = 26; /* Stream with IDMP support */
-
+    public static final int RDB_TYPE_HASH_2 = 22; /* valkey 9, hash with field-level expiration */
+    public static final int RDB_TYPE_HASH_METADATA = 24; /* since redis 7.4 */
+    public static final int RDB_TYPE_HASH_LISTPACK_EX = 25; /* since redis 7.4 */
+    
     /**
      * Module serialized values sub opcodes
      */
@@ -144,4 +145,7 @@ public class Constants {
     public static final byte MINUS = '-';
     public static final byte COLON = ':';
     public static final byte HASHTAG = '#'; // since redis 7.0 TS timestamp
+
+    /** Size of the EOF marker in diskless replication ($EOF:<marker>). */
+    public static final int RDB_EOF_MARK_SIZE = 40;
 }

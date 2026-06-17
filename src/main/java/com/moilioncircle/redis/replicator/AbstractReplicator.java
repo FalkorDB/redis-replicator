@@ -19,6 +19,7 @@ package com.moilioncircle.redis.replicator;
 import static com.moilioncircle.redis.replicator.Status.CONNECTED;
 import static com.moilioncircle.redis.replicator.Status.DISCONNECTED;
 import static com.moilioncircle.redis.replicator.Status.DISCONNECTING;
+
 import static com.moilioncircle.redis.replicator.util.Tuples.of;
 
 import java.io.EOFException;
@@ -54,6 +55,9 @@ import com.moilioncircle.redis.replicator.cmd.parser.GetSetParser;
 import com.moilioncircle.redis.replicator.cmd.parser.HDelParser;
 import com.moilioncircle.redis.replicator.cmd.parser.HIncrByParser;
 import com.moilioncircle.redis.replicator.cmd.parser.HMSetParser;
+import com.moilioncircle.redis.replicator.cmd.parser.HPExpireAtParser;
+import com.moilioncircle.redis.replicator.cmd.parser.HPersistParser;
+import com.moilioncircle.redis.replicator.cmd.parser.HSetExParser;
 import com.moilioncircle.redis.replicator.cmd.parser.HSetNxParser;
 import com.moilioncircle.redis.replicator.cmd.parser.HSetParser;
 import com.moilioncircle.redis.replicator.cmd.parser.IncrByParser;
@@ -66,6 +70,7 @@ import com.moilioncircle.redis.replicator.cmd.parser.LPushXParser;
 import com.moilioncircle.redis.replicator.cmd.parser.LRemParser;
 import com.moilioncircle.redis.replicator.cmd.parser.LSetParser;
 import com.moilioncircle.redis.replicator.cmd.parser.LTrimParser;
+import com.moilioncircle.redis.replicator.cmd.parser.MSetExParser;
 import com.moilioncircle.redis.replicator.cmd.parser.MSetNxParser;
 import com.moilioncircle.redis.replicator.cmd.parser.MSetParser;
 import com.moilioncircle.redis.replicator.cmd.parser.MoveParser;
@@ -104,9 +109,11 @@ import com.moilioncircle.redis.replicator.cmd.parser.SetRangeParser;
 import com.moilioncircle.redis.replicator.cmd.parser.SortParser;
 import com.moilioncircle.redis.replicator.cmd.parser.SwapDBParser;
 import com.moilioncircle.redis.replicator.cmd.parser.UnLinkParser;
+import com.moilioncircle.redis.replicator.cmd.parser.XAckDelParser;
 import com.moilioncircle.redis.replicator.cmd.parser.XAckParser;
 import com.moilioncircle.redis.replicator.cmd.parser.XAddParser;
 import com.moilioncircle.redis.replicator.cmd.parser.XClaimParser;
+import com.moilioncircle.redis.replicator.cmd.parser.XDelExParser;
 import com.moilioncircle.redis.replicator.cmd.parser.XDelParser;
 import com.moilioncircle.redis.replicator.cmd.parser.XGroupParser;
 import com.moilioncircle.redis.replicator.cmd.parser.XSetIdParser;
@@ -125,7 +132,6 @@ import com.moilioncircle.redis.replicator.cmd.parser.ZUnionStoreParser;
 import com.moilioncircle.redis.replicator.event.AbstractEvent;
 import com.moilioncircle.redis.replicator.event.Event;
 import com.moilioncircle.redis.replicator.io.RedisInputStream;
-import com.moilioncircle.redis.replicator.rdb.DefaultRdbVisitor;
 import com.moilioncircle.redis.replicator.rdb.RdbVisitor;
 import com.moilioncircle.redis.replicator.rdb.datatype.Module;
 import com.moilioncircle.redis.replicator.rdb.module.ModuleKey;
@@ -140,7 +146,7 @@ import com.moilioncircle.redis.replicator.util.type.Tuple2;
 public abstract class AbstractReplicator extends AbstractReplicatorListener implements Replicator {
     protected Configuration configuration;
     protected RedisInputStream inputStream;
-    protected RdbVisitor rdbVisitor = new DefaultRdbVisitor(this);
+    protected RdbVisitor rdbVisitor;
     protected final AtomicReference<Status> connected = new AtomicReference<>(DISCONNECTED);
     protected final Map<ModuleKey, ModuleParser<? extends Module>> modules = new ConcurrentHashMap<>();
     protected final Map<CommandName, CommandParser<? extends Command>> commands = new ConcurrentHashMap<>();
@@ -231,6 +237,9 @@ public abstract class AbstractReplicator extends AbstractReplicatorListener impl
     
     @Override
     public RdbVisitor getRdbVisitor() {
+        if (this.rdbVisitor == null) {
+            this.rdbVisitor = configuration.getFlavor().rdbVisitor(this);
+        }
         return this.rdbVisitor;
     }
     
@@ -329,6 +338,17 @@ public abstract class AbstractReplicator extends AbstractReplicatorListener impl
         // since redis 7.0
         addCommandParser(CommandName.name("SPUBLISH"), new SPublishParser());
         addCommandParser(CommandName.name("FUNCTION"), new FunctionParser());
+        // since redis 7.4
+        addCommandParser(CommandName.name("HSETEX"), new HSetExParser());
+        addCommandParser(CommandName.name("HPEXPIREAT"), new HPExpireAtParser());
+        addCommandParser(CommandName.name("HPERSIST"), new HPersistParser());
+        // since redis 8.2
+        addCommandParser(CommandName.name("XACKDEL"), new XAckDelParser());
+        addCommandParser(CommandName.name("XDELEX"), new XDelExParser());
+        // since redis 8.4
+        addCommandParser(CommandName.name("MSETEX"), new MSetExParser());
+        // flavor-specific parsers (e.g., Valkey 9 hash field TTL)
+        configuration.getFlavor().extendCommandParsers(this);
     }
     
     @Override

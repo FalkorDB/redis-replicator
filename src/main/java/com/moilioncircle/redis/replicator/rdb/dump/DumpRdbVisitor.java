@@ -16,6 +16,7 @@
 
 package com.moilioncircle.redis.replicator.rdb.dump;
 
+
 import java.io.IOException;
 
 import com.moilioncircle.redis.replicator.Replicator;
@@ -44,10 +45,17 @@ public class DumpRdbVisitor extends DefaultRdbVisitor {
 
     /**
      * @param replicator the replicator
-     * @param version    dumped version : redis 2.8.x = 6, redis 3.x = 7, redis 4.0.x = 8, redis 5.0+ = 9. 
+     * @param version    dumped version :
+     *                       redis 2.8.x = 6
+     *                       redis 3.x = 7
+     *                       redis 4.0.x = 8
+     *                       redis 5.0 ~ 6.2 = 9
+     *                       redis 7.0 = 10
+     *                       redis 7.2 = 11
+     *                       redis 7.4 ~ 8.2 = 12
      *                   -1 means dumped version = rdb version
      * @since 2.6.0
-     */
+     */ 
     public DumpRdbVisitor(Replicator replicator, int version) {
         this(replicator, version, 8192);
     }
@@ -274,6 +282,51 @@ public class DumpRdbVisitor extends DefaultRdbVisitor {
         o18.setKey(key);
         o18.setValue(valueVisitor.applyListQuickList2(in, version));
         return context.valueOf(o18);
+    }
+    
+    @Override
+    public Event applyHash2(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o22 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        if (this.version != -1 && this.version < 80 /* since valkey rdb version 80 */) {
+            o22.setValueRdbType(RDB_TYPE_HASH);
+        } else {
+            o22.setValueRdbType(RDB_TYPE_HASH_2);
+        }
+        o22.setKey(key);
+        o22.setValue(valueVisitor.applyHash2(in, version));
+        return context.valueOf(o22);
+    }
+
+    @Override
+    public Event applyHashMetadata(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException{
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o24 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        if (this.version != -1 && this.version < 12 /* since redis rdb version 12 */) {
+            o24.setValueRdbType(RDB_TYPE_HASH);
+        } else {
+            o24.setValueRdbType(RDB_TYPE_HASH_METADATA);
+        }
+        o24.setKey(key);
+        o24.setValue(valueVisitor.applyHashMetadata(in, version));
+        return context.valueOf(o24);
+    }
+    
+    @Override
+    public Event applyHashListPackEx(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o25 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        if (this.version != -1 && this.version < 12 /* since redis rdb version 12 */) {
+            o25.setValueRdbType(RDB_TYPE_HASH);
+        } else {
+            o25.setValueRdbType(RDB_TYPE_HASH_LISTPACK_EX);
+        }
+        o25.setKey(key);
+        o25.setValue(valueVisitor.applyHashListPackEx(in, version));
+        return context.valueOf(o25);
     }
 
     @Override

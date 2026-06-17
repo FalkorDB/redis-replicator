@@ -16,6 +16,7 @@
 
 package com.moilioncircle.redis.replicator.rdb.dump.parser;
 
+
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Objects;
@@ -139,12 +140,12 @@ public class IterableDumpValueParser implements DumpValueParser {
                     return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks2(in, 0));
                 case RDB_TYPE_STREAM_LISTPACKS_3:
                     return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks3(in, 0));
-                case RDB_TYPE_STREAM_LISTPACKS_4:
-                    return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks4(in, 0));
-                case RDB_TYPE_HASH_METADATA:
-                    return KeyValuePairs.iterHash(kv, valueVisitor.applyHashMetadata(in, 0));
+                case RDB_TYPE_HASH_2:
+                    return KeyValuePairs.iterTTLHash(kv, valueVisitor.applyHash2(in, 0));
                 case RDB_TYPE_HASH_LISTPACK_EX:
-                    return KeyValuePairs.iterHash(kv, valueVisitor.applyHashListPackEx(in, 0));
+                    return KeyValuePairs.iterTTLHash(kv, valueVisitor.applyHashListPackEx(in, 0));
+                case RDB_TYPE_HASH_METADATA:
+                    return KeyValuePairs.iterTTLHash(kv, valueVisitor.applyHashMetadata(in, 0));
                 default:
                     throw new AssertionError("unexpected value type:" + valueType);
             }

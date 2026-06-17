@@ -16,6 +16,7 @@
 
 package com.moilioncircle.redis.replicator.rdb.datatype;
 
+import com.moilioncircle.redis.replicator.rdb.iterable.datatype.BatchedKeyStringValueTTLHash;
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.BatchedKeyStringValueHash;
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.BatchedKeyStringValueList;
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.BatchedKeyStringValueModule;
@@ -25,6 +26,7 @@ import com.moilioncircle.redis.replicator.rdb.iterable.datatype.BatchedKeyString
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.BatchedKeyStringValueZSet;
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.BatchedKeyValuePair;
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.KeyStringValueByteArrayIterator;
+import com.moilioncircle.redis.replicator.rdb.iterable.datatype.KeyStringValueTTLMapEntryIterator;
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.KeyStringValueMapEntryIterator;
 import com.moilioncircle.redis.replicator.rdb.iterable.datatype.KeyStringValueZSetEntryIterator;
 
@@ -58,6 +60,13 @@ public class KeyValuePairs {
 
     public static KeyValuePair<byte[], Map<byte[], byte[]>> hash(KeyValuePair<byte[], ?> raw, Map<byte[], byte[]> value) {
         KeyStringValueHash kv = new KeyStringValueHash();
+        copy(raw, kv);
+        kv.setValue(value);
+        return kv;
+    }
+    
+    public static KeyValuePair<byte[], Map<byte[], TTLValue>> ttlHash(KeyValuePair<byte[], ?> raw, Map<byte[], TTLValue> value) {
+        KeyStringValueTTLHash kv = new KeyStringValueTTLHash();
         copy(raw, kv);
         kv.setValue(value);
         return kv;
@@ -96,6 +105,13 @@ public class KeyValuePairs {
      */
     public static KeyStringValueMapEntryIterator iterHash(KeyValuePair<byte[], ?> raw, Iterator<Map.Entry<byte[], byte[]>> value) {
         KeyStringValueMapEntryIterator kv = new KeyStringValueMapEntryIterator();
+        copy(raw, kv);
+        kv.setValue(value);
+        return kv;
+    }
+    
+    public static KeyStringValueTTLMapEntryIterator iterTTLHash(KeyValuePair<byte[], ?> raw, Iterator<Map.Entry<byte[], TTLValue>> value) {
+        KeyStringValueTTLMapEntryIterator kv = new KeyStringValueTTLMapEntryIterator();
         copy(raw, kv);
         kv.setValue(value);
         return kv;
@@ -145,6 +161,13 @@ public class KeyValuePairs {
         kv.setValue(value);
         return kv;
     }
+    
+    public static BatchedKeyStringValueTTLHash ttlHash(KeyValuePair<byte[], ?> raw, Map<byte[], TTLValue> value, int batch, boolean last) {
+        BatchedKeyStringValueTTLHash kv = new BatchedKeyStringValueTTLHash();
+        copy(raw, kv, batch, last);
+        kv.setValue(value);
+        return kv;
+    }
 
     public static BatchedKeyStringValueList list(KeyValuePair<byte[], ?> raw, List<byte[]> value, int batch, boolean last) {
         BatchedKeyStringValueList kv = new BatchedKeyStringValueList();
@@ -180,18 +203,7 @@ public class KeyValuePairs {
     private static void copy(KeyValuePair<byte[], ?> source, KeyValuePair<byte[], ?> target) {
         target.setContext(source.getContext());
         target.setDb(source.getDb());
-        target.setSlotInfo(source.getSlotInfo());
-        target.setExpiredType(source.getExpiredType());
-        target.setExpiredValue(source.getExpiredValue());
-        target.setEvictType(source.getEvictType());
-        target.setEvictValue(source.getEvictValue());
-        target.setValueRdbType(source.getValueRdbType());
-        target.setKey(source.getKey());
-    }
-
-    private static void copy(KeyValuePair<byte[], ?> source, BatchedKeyValuePair<byte[], ?> target, int batch, boolean last) {
-        target.setContext(source.getContext());
-        target.setDb(source.getDb());
+        target.setSlot(source.getSlot());
         target.setSlotInfo(source.getSlotInfo());
         target.setExpiredType(source.getExpiredType());
         target.setExpiredValue(source.getExpiredValue());

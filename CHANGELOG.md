@@ -1,3 +1,34 @@
+### 3.11.0
+
+Support for redis 8.4.x.  
+Support for Java 25.  
+
+AOF  
+1. Add support for `MSETEX` command.  
+
+### 3.10.0
+
+Support for redis 8.2.x.  
+
+AOF
+1. Add support for `XACKDEL` command.
+2. Add support for `XDELEX` command.
+
+### 3.9.0
+
+Support for redis 7.4.x and 8.0.x  
+Fix rate limit bug.  
+
+RDB
+1. Add support for Rdb event `RDB_TYPE_HASH_METADATA`.
+2. Add support for Rdb event `RDB_TYPE_HASH_LISTPACK_EX`.
+3. Add support for Rdb event `RDB_OPCODE_SLOT_INFO`.
+
+AOF
+1. Add support for `HPERSIST` command.
+2. Add support for `HSETEX` command.
+3. Add support for `HPEXPIREAT` command.
+
 ### 3.8.1
 
 Fix full sync offset bug. this bug could cause losing data in reconnection  
@@ -6,9 +37,7 @@ Support for java 21.
 ### 3.8.0
 
 Support for redis 7.2-RC2.  
-Support for rdb v11.  
-
-### 3.6.5
+Support for rdb v11.
 
 ### 3.7.0
 

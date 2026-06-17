@@ -25,11 +25,14 @@ import org.junit.Test;
 
 import com.moilioncircle.redis.replicator.cmd.impl.AggregateType;
 import com.moilioncircle.redis.replicator.cmd.impl.AppendCommand;
+import com.moilioncircle.redis.replicator.cmd.impl.CompareType;
 import com.moilioncircle.redis.replicator.cmd.impl.EvalCommand;
 import com.moilioncircle.redis.replicator.cmd.impl.EvalShaCommand;
+import com.moilioncircle.redis.replicator.cmd.impl.ExistType;
 import com.moilioncircle.redis.replicator.cmd.impl.ExpireAtCommand;
 import com.moilioncircle.redis.replicator.cmd.impl.ExpireCommand;
 import com.moilioncircle.redis.replicator.cmd.impl.GetSetCommand;
+import com.moilioncircle.redis.replicator.cmd.impl.HPExpireAtCommand;
 import com.moilioncircle.redis.replicator.cmd.impl.HSetCommand;
 import com.moilioncircle.redis.replicator.cmd.impl.HSetNxCommand;
 import com.moilioncircle.redis.replicator.cmd.impl.LSetCommand;
@@ -191,6 +194,26 @@ public class PingParserTest extends AbstractParserTest {
             ExpireAtCommand cmd = parser.parse(toObjectArray("expireat key 5".split(" ")));
             assertEquals("key", cmd.getKey());
             assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
+        }
+        
+        {
+            ExpireAtParser parser = new ExpireAtParser();
+            ExpireAtCommand cmd = parser.parse(toObjectArray("expireat key 5 xx".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.XX, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
+        }
+        
+        {
+            ExpireAtParser parser = new ExpireAtParser();
+            ExpireAtCommand cmd = parser.parse(toObjectArray("expireat key 5 gt".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.GT, cmd.getCompareType());
         }
     
         {
@@ -205,6 +228,26 @@ public class PingParserTest extends AbstractParserTest {
             PExpireAtCommand cmd = parser.parse(toObjectArray("pexpireat key 5".split(" ")));
             assertEquals("key", cmd.getKey());
             assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
+        }
+        
+        {
+            PExpireAtParser parser = new PExpireAtParser();
+            PExpireAtCommand cmd = parser.parse(toObjectArray("pexpireat key 5 nx".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.NX, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
+        }
+        
+        {
+            PExpireAtParser parser = new PExpireAtParser();
+            PExpireAtCommand cmd = parser.parse(toObjectArray("pexpireat key 5 lt".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.LT, cmd.getCompareType());
         }
     
         {
@@ -212,6 +255,65 @@ public class PingParserTest extends AbstractParserTest {
             PExpireCommand cmd = parser.parse(toObjectArray("pexpire key 5".split(" ")));
             assertEquals("key", cmd.getKey());
             assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
+        }
+        
+        {
+            PExpireParser parser = new PExpireParser();
+            PExpireCommand cmd = parser.parse(toObjectArray("pexpire key 5 xx".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.XX, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
+        }
+        
+        {
+            PExpireParser parser = new PExpireParser();
+            PExpireCommand cmd = parser.parse(toObjectArray("pexpire key 5 lt".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.LT, cmd.getCompareType());
+        }
+        
+        {
+            HPExpireAtParser parser = new HPExpireAtParser();
+            HPExpireAtCommand cmd = parser.parse(toObjectArray("hpexpireat key 5 fields 3 f1 f2 f3".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            assertEquals(3, cmd.getFields().length);
+            assertEquals("f1", cmd.getFields()[0]);
+            assertEquals("f2", cmd.getFields()[1]);
+            assertEquals("f3", cmd.getFields()[2]);
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
+        }
+        
+        {
+            HPExpireAtParser parser = new HPExpireAtParser();
+            HPExpireAtCommand cmd = parser.parse(toObjectArray("hpexpireat key 5 lt fields 3 f1 f2 f3".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            assertEquals(3, cmd.getFields().length);
+            assertEquals("f1", cmd.getFields()[0]);
+            assertEquals("f2", cmd.getFields()[1]);
+            assertEquals("f3", cmd.getFields()[2]);
+            TestCase.assertEquals(ExistType.NONE, cmd.getExistType());
+            TestCase.assertEquals(CompareType.LT, cmd.getCompareType());
+        }
+        
+        {
+            HPExpireAtParser parser = new HPExpireAtParser();
+            HPExpireAtCommand cmd = parser.parse(toObjectArray("hpexpireat key 5 xx fields 3 f1 f2 f3".split(" ")));
+            assertEquals("key", cmd.getKey());
+            assertEquals(5, cmd.getEx());
+            assertEquals(3, cmd.getFields().length);
+            assertEquals("f1", cmd.getFields()[0]);
+            assertEquals("f2", cmd.getFields()[1]);
+            assertEquals("f3", cmd.getFields()[2]);
+            TestCase.assertEquals(ExistType.XX, cmd.getExistType());
+            TestCase.assertEquals(CompareType.NONE, cmd.getCompareType());
         }
     
         {

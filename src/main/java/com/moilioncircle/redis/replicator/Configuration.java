@@ -193,11 +193,27 @@ public class Configuration {
     
     /**
      * @since 3.7.0
-     * 
+     *
      * set SCAN COUNT if enableScan = true
      */
     private int scanStep = 512;
-    
+
+    /**
+     * @since 3.12.0
+     *
+     * Set FLAVOR to VALKEY if the target server is Valkey.
+     */
+    private FlavorSupport flavor = Flavor.REDIS;
+
+    public FlavorSupport getFlavor() {
+        return flavor;
+    }
+
+    public Configuration setFlavor(FlavorSupport flavor) {
+        this.flavor = flavor;
+        return this;
+    }
+
     public int getConnectionTimeout() {
         return connectionTimeout;
     }
@@ -515,6 +531,10 @@ public class Configuration {
         if (parameters.containsKey("replOffset")) {
             configuration.setReplOffset(getLong(parameters.get("replOffset"), -1L));
         }
+        
+        if (parameters.containsKey("flavor")) {
+            configuration.setFlavor(Flavor.toFlavor(parameters.get("flavor")));
+        }
     
         // scan
         if (parameters.containsKey("enableScan")) {
@@ -597,6 +617,7 @@ public class Configuration {
                 ", replStreamDB=" + replStreamDB +
                 ", replOffset=" + replOffset +
                 ", replFilters=" + Arrays.toString(replFilters) +
+                ", flavor=" + flavor +
                 '}';
     }
 }

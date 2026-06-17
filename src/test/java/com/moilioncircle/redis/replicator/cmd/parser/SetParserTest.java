@@ -22,6 +22,7 @@ import org.junit.Test;
 
 import com.moilioncircle.redis.replicator.cmd.impl.ExistType;
 import com.moilioncircle.redis.replicator.cmd.impl.SetCommand;
+import com.moilioncircle.redis.replicator.cmd.impl.Operator;
 import com.moilioncircle.redis.replicator.cmd.impl.XATType;
 import com.moilioncircle.redis.replicator.rdb.datatype.ExpiredType;
 
@@ -92,7 +93,30 @@ public class SetParserTest extends AbstractParserTest {
         TestCase.assertEquals(XATType.PXAT, cmd.getXatType());
         assertEquals(1614139099000L, cmd.getXatValue());
         TestCase.assertEquals(ExistType.XX, cmd.getExistType());
-    
+        
+        cmd = parser.parse(toObjectArray("set a b ifeq c".split(" ")));
+        assertEquals("a", cmd.getKey());
+        assertEquals("b", cmd.getValue());
+        TestCase.assertEquals(Operator.IFEQ, cmd.getCondition().getOperator());
+        assertEquals("c", cmd.getCondition().getValue());
+        
+        cmd = parser.parse(toObjectArray("set a b ifne c".split(" ")));
+        assertEquals("a", cmd.getKey());
+        assertEquals("b", cmd.getValue());
+        TestCase.assertEquals(Operator.IFNE, cmd.getCondition().getOperator());
+        assertEquals("c", cmd.getCondition().getValue());
+        
+        cmd = parser.parse(toObjectArray("set a b ifdeq 3f6a75243dc708d7".split(" ")));
+        assertEquals("a", cmd.getKey());
+        assertEquals("b", cmd.getValue());
+        TestCase.assertEquals(Operator.IFDEQ, cmd.getCondition().getOperator());
+        assertEquals("3f6a75243dc708d7", cmd.getCondition().getValue());
+        
+        cmd = parser.parse(toObjectArray("set a b ifdne 3f6a75243dc708d7".split(" ")));
+        assertEquals("a", cmd.getKey());
+        assertEquals("b", cmd.getValue());
+        TestCase.assertEquals(Operator.IFDNE, cmd.getCondition().getOperator());
+        assertEquals("3f6a75243dc708d7", cmd.getCondition().getValue());
     }
 
 }

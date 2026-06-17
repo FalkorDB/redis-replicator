@@ -21,8 +21,10 @@ import static com.moilioncircle.redis.replicator.cmd.CommandParsers.toRune;
 import static com.moilioncircle.redis.replicator.util.Strings.isEquals;
 
 import com.moilioncircle.redis.replicator.cmd.CommandParser;
+import com.moilioncircle.redis.replicator.cmd.impl.Condition;
 import com.moilioncircle.redis.replicator.cmd.impl.ExistType;
 import com.moilioncircle.redis.replicator.cmd.impl.SetCommand;
+import com.moilioncircle.redis.replicator.cmd.impl.Operator;
 import com.moilioncircle.redis.replicator.cmd.impl.XATType;
 import com.moilioncircle.redis.replicator.rdb.datatype.ExpiredType;
 
@@ -44,6 +46,7 @@ public class SetParser implements CommandParser<SetCommand> {
         boolean et = false, st = false;
         boolean keepTtl = false;
         boolean get = false;
+        Condition condition = null;
         ExpiredType expiredType = ExpiredType.NONE;
         while (idx < command.length) {
             String param = toRune(command[idx++]);
@@ -53,9 +56,23 @@ public class SetParser implements CommandParser<SetCommand> {
             } else if (!et && isEquals(param, "XX")) {
                 existType = ExistType.XX;
                 et = true;
-            } else if (!keepTtl && isEquals(param, "KEEPTTL")) {
-                keepTtl = true;
-            } else if (!keepTtl && isEquals(param, "GET")) {
+            } else if (!et && isEquals(param, "IFEQ")) {
+                byte[] conVal = toBytes(command[idx++]);
+                condition = new Condition(Operator.IFEQ, conVal);
+                et = true;
+            } else if (!et && isEquals(param, "IFNE")) {
+                byte[] conVal = toBytes(command[idx++]);
+                condition = new Condition(Operator.IFNE, conVal);
+                et = true;
+            } else if (!et && isEquals(param, "IFDEQ")) {
+                byte[] conVal = toBytes(command[idx++]);
+                condition = new Condition(Operator.IFDEQ, conVal);
+                et = true;
+            } else if (!et && isEquals(param, "IFDNE")) {
+                byte[] conVal = toBytes(command[idx++]);
+                condition = new Condition(Operator.IFDNE, conVal);
+                et = true;
+            } else if (isEquals(param, "GET")) {
                 get = true;
             }
 
@@ -75,9 +92,11 @@ public class SetParser implements CommandParser<SetCommand> {
                 xatType = XATType.PXAT;
                 xatValue = Long.valueOf(toRune(command[idx++]));
                 st = true;
+            } else if (!st && isEquals(param, "KEEPTTL")) {
+                keepTtl = true;
             }
         }
-        return new SetCommand(key, value, keepTtl, expiredType, expiredValue, xatType, xatValue, existType, get);
+        return new SetCommand(key, value, keepTtl, expiredType, expiredValue, xatType, xatValue, existType, get, condition);
     }
 
 }

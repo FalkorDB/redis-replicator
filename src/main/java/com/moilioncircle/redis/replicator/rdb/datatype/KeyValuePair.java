@@ -28,6 +28,7 @@ public class KeyValuePair<K, V> extends AbstractEvent {
 
     protected DB db;
     protected SlotInfo slotInfo;
+    protected Slot slot;
     protected int valueRdbType;
     protected ExpiredType expiredType = ExpiredType.NONE;
     protected Long expiredValue;
@@ -98,6 +99,14 @@ public class KeyValuePair<K, V> extends AbstractEvent {
 
     public void setDb(DB db) {
         this.db = db;
+    }
+    
+    public Slot getSlot() {
+        return slot;
+    }
+    
+    public void setSlot(Slot slot) {
+        this.slot = slot;
     }
 
     public SlotInfo getSlotInfo() {

@@ -49,6 +49,8 @@
          * [5.9.2. ACL支持](#592-acl支持)
       * [5.10. Redis7支持](#510-redis7支持)
         * [5.10.1. Function](#5101-function)
+      * [5.11. Redis7.4支持](#511-redis74支持)
+        * [5.11.1. TTL Hash](#5111-ttl-hash)
    * [6. 贡献者](#6-贡献者)
    * [7. 商业咨询](#7-商业咨询)
    * [8. 相关引用](#8-相关引用)
@@ -70,7 +72,7 @@
 [![Hex.pm](https://img.shields.io/hexpm/l/plug.svg?maxAge=2592000)](https://github.com/leonchen83/redis-replicator/blob/master/LICENSE)
 [![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg?style=flat-square)](./ANTI-996-LICENSE_CN)  
   
-Redis Replicator是一款RDB解析以及AOF解析的工具. 此工具完整实现了Redis Replication协议. 支持SYNC, PSYNC, PSYNC2等三种同步命令. 还支持远程RDB文件备份以及数据同步等功能. 此文中提到的 `命令` 特指Redis中的写(比如 `set`,`hmset`)命令，不包括读命令(比如 `get`,`hmget`), 支持的redis版本范围从2.6到6.2  
+Redis Replicator是一款RDB解析以及AOF解析的工具. 此工具完整实现了Redis Replication协议. 支持SYNC, PSYNC, PSYNC2等三种同步命令. 还支持远程RDB文件备份以及数据同步等功能. 此文中提到的 `命令` 特指Redis中的写(比如 `set`,`hmset`)命令，不包括读命令(比如 `get`,`hmget`), 支持的redis版本范围从2.6到8.4.x  
 
 ## 1.2. QQ讨论组  
   
@@ -85,21 +87,21 @@ Redis Replicator是一款RDB解析以及AOF解析的工具. 此工具完整实�
 编译最低jdk版本 jdk9+  
 运行最低jdk版本 jdk8+  
 maven-3.3.1+  
-redis 2.6 - 7.0  
+redis 2.6 - 8.4  
 
 ## 2.2. Maven依赖  
 ```xml  
     <dependency>
         <groupId>com.moilioncircle</groupId>
         <artifactId>redis-replicator</artifactId>
-        <version>3.8.1</version>
+        <version>3.11.0</version>
     </dependency>
 ```
 
 ## 2.3. 安装源码到本地maven仓库  
   
 ```
-    step 1: 安装 jdk-9.0.x (或 jdk-11.0.x)
+    step 1: 安装 jdk-11.0.x
     step 2: git clone https://github.com/leonchen83/redis-replicator.git
     step 3: $cd ./redis-replicator 
     step 4: $mvn clean install package -DskipTests
@@ -107,19 +109,22 @@ redis 2.6 - 7.0
 
 ## 2.4. 选择一个版本
 
-| **redis 版本**       | **redis-replicator 版本** |  
-|--------------------|-------------------------|  
-| \[2.6, 7.2.x\]     | \[3.8.0, \]             |  
-| \[2.6, 7.0.x\]     | \[3.6.4, 3.7.0\]        |  
-| \[2.6, 7.0.x-RC2\] | \[3.6.2, 3.6.3\]        |  
-| \[2.6, 7.0.0-RC1\] | \[3.6.0, 3.6.1\]        |  
-| \[2.6, 6.2.x\]     | \[3.5.2, 3.5.5\]        |  
-| \[2.6, 6.2.x-RC1\] | \[3.5.0, 3.5.1\]        |  
-| \[2.6, 6.0.x\]     | \[3.4.0, 3.4.4\]        |  
-| \[2.6, 5.0.x\]     | \[2.6.1, 3.3.3\]        |  
-| \[2.6, 4.0.x\]     | \[2.3.0, 2.5.0\]        |  
-| \[2.6, 4.0-RC3\]   | \[2.1.0, 2.2.0\]        |  
-| \[2.6, 3.2.x\]     | \[1.0.18\](不再提供支持)      |  
+| **Redis Version** | **redis-replicator Version** |
+|-------------------|------------------------------|
+| [2.6, 8.4.x]      | [3.11.0,     ]               |
+| [2.6, 8.2.x]      | [3.10.0,3.10.0]              |
+| [2.6, 8.0.x]      | [3.9.0, 3.9.0]               |
+| [2.6, 7.2.x]      | [3.8.0, 3.8.1]               |
+| [2.6, 7.0.x]      | [3.6.4, 3.7.0]               |
+| [2.6, 7.0.x-RC2]  | [3.6.2, 3.6.3]               |
+| [2.6, 7.0.0-RC1]  | [3.6.0, 3.6.1]               |
+| [2.6, 6.2.x]      | [3.5.2, 3.5.5]               |
+| [2.6, 6.2.0-RC1]  | [3.5.0, 3.5.1]               |
+| [2.6, 6.0.x]      | [3.4.0, 3.4.4]               |
+| [2.6, 5.0.x]      | [2.6.1, 3.3.3]               |
+| [2.6, 4.0.x]      | [2.3.0, 2.5.0]               |
+| [2.6, 4.0-RC3]    | [2.1.0, 2.2.0]               |
+| [2.6, 3.2.x]      | [1.0.18] (not supported)     |
 
 
 # 3. 简要用法  
@@ -453,30 +458,33 @@ Replicator replicator = new RedisReplicator("rediss://user:pass@127.0.0.1:6379?r
   
 ## 5.1. 内置的Command Parser  
 
-|  **命令**   |**命令**        |  **命令**            |**命令**       |**命令**      | **命令**            |  
-| ---------- | -------------- | --------------------| ------------ | ------------ | ------------------ |  
-|  **PING**  |  **APPEND**    |  **SET**            |  **SETEX**   |  **MSET**    |  **DEL**           |  
-|  **SADD**  |  **HMSET**     |  **HSET**           |  **LSET**    |  **EXPIRE**  |  **EXPIREAT**      |  
-| **GETSET** | **HSETNX**     |  **MSETNX**         | **PSETEX**   | **SETNX**    |  **SETRANGE**      |  
-| **HDEL**   | **UNLINK**     |  **SREM**           | **LPOP**     |  **LPUSH**   | **LPUSHX**         |  
-| **LRem**   | **RPOP**       |  **RPUSH**          | **RPUSHX**   |  **ZREM**    |  **ZINTERSTORE**   |  
-| **INCR**   |  **DECR**      |  **INCRBY**         |**PERSIST**   |  **SELECT**  | **FLUSHALL**       |  
-|**FLUSHDB** |  **HINCRBY**   | **ZINCRBY**         | **MOVE**     |  **SMOVE**   |**BRPOPLPUSH**      |  
-|**PFCOUNT** |  **PFMERGE**   | **SDIFFSTORE**      |**RENAMENX**  | **PEXPIREAT**|**SINTERSTORE**     |  
-|**ZADD**    | **BITFIELD**   |**SUNIONSTORE**      |**RESTORE**   | **LINSERT**  |**ZREMRANGEBYLEX**  |  
-|**GEOADD**  | **PEXPIRE**    |**ZUNIONSTORE**      |**EVAL**      |  **SCRIPT**  |**ZREMRANGEBYRANK** |  
-|**PUBLISH** |  **BITOP**     |**SETBIT**           | **SWAPDB**   | **PFADD**    |**ZREMRANGEBYSCORE**|  
-|**RENAME**  |  **MULTI**     |  **EXEC**           | **LTRIM**    |**RPOPLPUSH** |     **SORT**       |  
-|**EVALSHA** | **ZPOPMAX**    | **ZPOPMIN**         | **XACK**     | **XADD**     |  **XCLAIM**        |  
-|**XDEL**    | **XGROUP**     | **XTRIM**           | **XSETID**   | **COPY**     |  **LMOVE**         |  
-|**BLMOVE**  | **ZDIFFSTORE** | **GEOSEARCHSTORE**  | **FUNCTION** | **SPUBLISH** |                    |  
+| **命令**       |**命令**        | **命令**             |**命令**       |**命令**      | **命令**            |  
+|--------------| -------------- |--------------------| ------------ | ------------ | ------------------ |  
+| **PING**     |  **APPEND**    | **SET**            |  **SETEX**   |  **MSET**    |  **DEL**           |  
+| **SADD**     |  **HMSET**     | **HSET**           |  **LSET**    |  **EXPIRE**  |  **EXPIREAT**      |  
+| **GETSET**   | **HSETNX**     | **MSETNX**         | **PSETEX**   | **SETNX**    |  **SETRANGE**      |  
+| **HDEL**     | **UNLINK**     | **SREM**           | **LPOP**     |  **LPUSH**   | **LPUSHX**         |  
+| **LRem**     | **RPOP**       | **RPUSH**          | **RPUSHX**   |  **ZREM**    |  **ZINTERSTORE**   |  
+| **INCR**     |  **DECR**      | **INCRBY**         |**PERSIST**   |  **SELECT**  | **FLUSHALL**       |  
+| **FLUSHDB**  |  **HINCRBY**   | **ZINCRBY**        | **MOVE**     |  **SMOVE**   |**BRPOPLPUSH**      |  
+| **PFCOUNT**  |  **PFMERGE**   | **SDIFFSTORE**     |**RENAMENX**  | **PEXPIREAT**|**SINTERSTORE**     |  
+| **ZADD**     | **BITFIELD**   | **SUNIONSTORE**    |**RESTORE**   | **LINSERT**  |**ZREMRANGEBYLEX**  |  
+| **GEOADD**   | **PEXPIRE**    | **ZUNIONSTORE**    |**EVAL**      |  **SCRIPT**  |**ZREMRANGEBYRANK** |  
+| **PUBLISH**  |  **BITOP**     | **SETBIT**         | **SWAPDB**   | **PFADD**    |**ZREMRANGEBYSCORE**|  
+| **RENAME**   |  **MULTI**     | **EXEC**           | **LTRIM**    |**RPOPLPUSH** |     **SORT**       |  
+| **EVALSHA**  | **ZPOPMAX**    | **ZPOPMIN**        | **XACK**     | **XADD**     |  **XCLAIM**        |  
+| **XDEL**     | **XGROUP**     | **XTRIM**          | **XSETID**   | **COPY**     |  **LMOVE**         |  
+| **BLMOVE**   | **ZDIFFSTORE** | **GEOSEARCHSTORE** | **FUNCTION** | **SPUBLISH** | **HPERSIST**       |  
+| **HSETEX**   | **HPEXPIREAT** | **XACKDEL**        | **XDELEX**   | **MSETEX**   |                    |  
   
 ## 5.2. 当出现EOFException
+
+当消费事件过慢积压事件超过redis backlog限制时，redis会主动断开与slave的连接，Redis-replicator再重连时会走全量同步，如果想避免这一情况，需要设置参数`client-output-buffer-limit slave 0 0 0`
   
-* 调整redis server中的以下配置. 相关配置请参考 [redis.conf](https://raw.githubusercontent.com/antirez/redis/3.0/redis.conf)  
+相关配置请参考 [redis.conf](https://raw.githubusercontent.com/antirez/redis/3.0/redis.conf)  
   
 ```java  
-    client-output-buffer-limit slave 0 0 0
+client-output-buffer-limit slave 0 0 0
 ```  
 **警告: 这个配置可能会使redis-server中的内存溢出**  
   
@@ -659,6 +667,36 @@ Redis 7.0 添加了 `function` 的支持. `function` 的结构存储在rdb文件
                 byte[] serialized = function.getSerialized();
                 // your code goes here
                 // you can use FUNCTION RESTORE to restore above serialized data to target redis
+            }
+        }
+    });
+    replicator.open();
+```
+
+## 5.11. Redis7.4支持
+
+### 5.11.1. TTL Hash
+
+Redis 7.4 添加了 `ttl hash` 的支持. `ttl hash` 的结构存储在rdb文件中. 因此我们能用如下方式解析`ttl hash`.
+
+```java  
+
+    Replicator replicator = new RedisReplicator("redis://127.0.0.1:6379");
+    replicator.addEventListener(new EventListener() {
+        @Override
+        public void onEvent(Replicator replicator, Event event) {
+            if (event instanceof KeyStringValueTTLHash) {
+                KeyStringValueTTLHash skv = (KeyStringValueTTLHash) event;
+                // key
+                byte[] key = skv.getKey();
+                
+                // ttl hash
+                Map<byte[], TTLValue> ttlHash = skv.getValue();
+                for (Map.Entry<byte[], TTLValue> entry : ttlHash.entrySet()) {
+                    System.out.println("field:" + Strings.toString(entry.getKey()));
+                    System.out.println("value:" + Strings.toString(entry.getValue().getValue()));
+                    System.out.println("field ttl:" + entry.getValue().getExpires());
+                }
             }
         }
     });

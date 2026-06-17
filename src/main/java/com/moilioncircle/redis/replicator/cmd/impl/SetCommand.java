@@ -29,6 +29,7 @@ public class SetCommand extends GenericKeyValueCommand {
     private static final long serialVersionUID = 1L;
     
     private boolean keepTtl;
+    private Condition condition;
     private ExpiredType expiredType;
     private Long expiredValue;
     private XATType xatType;
@@ -39,6 +40,16 @@ public class SetCommand extends GenericKeyValueCommand {
     public SetCommand() {
     }
     
+    /**
+     * @param key key
+     * @param value value
+     * @param keepTtl keepttl since redis 6.0
+     * @param expiredType expiredType
+     * @param expiredValue expiredValue
+     * @param existType existType
+     * @deprecated use {@link #SetCommand(byte[], byte[], boolean, ExpiredType, Long, XATType, Long, ExistType, boolean, Condition)} instead
+     */
+    @Deprecated
     public SetCommand(byte[] key, byte[] value, boolean keepTtl, ExpiredType expiredType, Long expiredValue, ExistType existType) {
         this(key, value, keepTtl, expiredType, expiredValue, existType, false);
     }
@@ -52,7 +63,9 @@ public class SetCommand extends GenericKeyValueCommand {
      * @param existType existType
      * @param get get since redis 6.2
      * @since 3.5.0
+     * @deprecated use {@link #SetCommand(byte[], byte[], boolean, ExpiredType, Long, XATType, Long, ExistType, boolean, Condition)} instead
      */
+    @Deprecated
     public SetCommand(byte[] key, byte[] value, boolean keepTtl, ExpiredType expiredType, Long expiredValue, ExistType existType, boolean get) {
         this(key, value, keepTtl, expiredType, expiredValue, XATType.NONE, null, existType, get);
     }
@@ -67,9 +80,28 @@ public class SetCommand extends GenericKeyValueCommand {
      * @param xatValue xatValue
      * @param existType existType
      * @param get get since redis 6.2
+     * @deprecated use {@link #SetCommand(byte[], byte[], boolean, ExpiredType, Long, XATType, Long, ExistType, boolean, Condition)} instead
      * @since 3.5.2
      */
+    @Deprecated
     public SetCommand(byte[] key, byte[] value, boolean keepTtl, ExpiredType expiredType, Long expiredValue, XATType xatType, Long xatValue, ExistType existType, boolean get) {
+        this(key, value, keepTtl, expiredType, expiredValue, xatType, xatValue, existType, get, null);
+    }
+    
+    /**
+     * @since 3.11.0
+     * @param key key
+     * @param value value
+     * @param keepTtl keepttl since redis 6.0
+     * @param expiredType expiredType
+     * @param expiredValue expiredValue
+     * @param xatType xatType
+     * @param xatValue xatValue
+     * @param existType existType
+     * @param get get since redis 6.2
+     * @param condition condition
+     */
+    public SetCommand(byte[] key, byte[] value, boolean keepTtl, ExpiredType expiredType, Long expiredValue, XATType xatType, Long xatValue, ExistType existType, boolean get, Condition condition) {
         super(key, value);
         this.keepTtl = keepTtl;
         this.expiredType = expiredType;
@@ -78,6 +110,7 @@ public class SetCommand extends GenericKeyValueCommand {
         this.xatValue = xatValue;
         this.existType = existType;
         this.get = get;
+        this.condition = condition;
     }
     
     public boolean getKeepTtl() {
@@ -158,5 +191,21 @@ public class SetCommand extends GenericKeyValueCommand {
      */
     public void setXatValue(Long xatValue) {
         this.xatValue = xatValue;
+    }
+    
+    /**
+     * @return condition
+     * @since 3.11.0
+     */
+    public Condition getCondition() {
+        return condition;
+    }
+    
+    /**
+     * @since 3.11.0
+     * @param condition condition
+     */
+    public void setCondition(Condition condition) {
+        this.condition = condition;
     }
 }

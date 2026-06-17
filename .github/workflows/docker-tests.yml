@@ -1,0 +1,40 @@
+name: Docker Tests
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        include:
+          - name: 'redis-6'
+            image: 'redis:6'
+            flavor: 'redis'
+          - name: 'redis-7'
+            image: 'redis:7'
+            flavor: 'redis'
+          - name: 'redis-8.4'
+            image: 'redis:8.4'
+            flavor: 'redis'
+          - name: 'valkey-9'
+            image: 'valkey/valkey:9'
+            flavor: 'valkey'
+    name: Test (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v6
+      - name: Start server with password (port 6380)
+        run: docker run -d -p 6380:6380 ${{ matrix.image }} --port 6380 --requirepass test
+      - name: Start server without password (port 6379)
+        run: docker run -d -p 6379:6379 ${{ matrix.image }}
+      - name: Setup JDK 11
+        uses: actions/setup-java@v5
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          check-latest: false
+      - name: Compile
+        run: mvn clean package -DskipTests -P CI --batch-mode --quiet
+      - name: Test
+        run: mvn test ${{ matrix.flavor == 'valkey' && '-Dtest.flavor=valkey' || '' }} --batch-mode --quiet

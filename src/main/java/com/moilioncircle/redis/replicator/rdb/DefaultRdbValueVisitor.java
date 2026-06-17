@@ -23,6 +23,7 @@ import com.moilioncircle.redis.replicator.io.RedisInputStream;
 import com.moilioncircle.redis.replicator.rdb.datatype.Function;
 import com.moilioncircle.redis.replicator.rdb.datatype.Module;
 import com.moilioncircle.redis.replicator.rdb.datatype.Stream;
+import com.moilioncircle.redis.replicator.rdb.datatype.TTLValue;
 import com.moilioncircle.redis.replicator.rdb.datatype.ZSetEntry;
 import com.moilioncircle.redis.replicator.rdb.module.ModuleParser;
 import com.moilioncircle.redis.replicator.rdb.skip.SkipRdbParser;
@@ -31,6 +32,7 @@ import com.moilioncircle.redis.replicator.util.ByteArrayList;
 import com.moilioncircle.redis.replicator.util.ByteArrayMap;
 import com.moilioncircle.redis.replicator.util.ByteArraySet;
 import com.moilioncircle.redis.replicator.util.Strings;
+import com.moilioncircle.redis.replicator.util.TTLByteArrayMap;
 
 /**
  * @author Leon Chen
@@ -432,6 +434,61 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
             }
         }
         return (T) list;
+    }
+    
+    @Override
+    public <T> T applyHash2(RedisInputStream in, int version) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        long len = parser.rdbLoadLen().len;
+        TTLByteArrayMap map = new TTLByteArrayMap();
+        while (len > 0) {
+            byte[] field = parser.rdbLoadEncodedStringObject().first();
+            byte[] value = parser.rdbLoadEncodedStringObject().first();
+            long expiry = parser.rdbLoadMillisecondTime();
+            map.put(field, new TTLValue(expiry == -1L ? null : expiry, value));
+            len--;
+        }
+        return (T) map;
+    }
+
+    @Override
+    public <T> T applyHashMetadata(RedisInputStream in, int version) throws IOException{
+        BaseRdbParser parser = new BaseRdbParser(in);
+        long minExpire = parser.rdbLoadMillisecondTime();
+        long len = parser.rdbLoadLen().len;
+        TTLByteArrayMap map = new TTLByteArrayMap();
+        while (len > 0) {
+            long ttl = parser.rdbLoadLen().len;
+            byte[] field = parser.rdbLoadEncodedStringObject().first();
+            byte[] value = parser.rdbLoadEncodedStringObject().first();
+            map.put(field, new TTLValue(ttl != 0 ? ttl + minExpire - 1 : null, value));
+            len--;
+        }
+        return (T) map;
+    }
+    
+    @Override
+    public <T> T applyHashListPackEx(RedisInputStream in, int version) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        long minExpire = parser.rdbLoadMillisecondTime();
+        RedisInputStream listPack = new RedisInputStream(parser.rdbLoadPlainStringObject());
+        TTLByteArrayMap map = new TTLByteArrayMap();
+        listPack.skip(4); // total-bytes
+        int len = listPack.readInt(2);
+        while (len > 0) {
+            byte[] field = listPackEntry(listPack);
+            len--;
+            byte[] value = listPackEntry(listPack);
+            len--;
+            long ttl = Long.parseLong(Strings.toString(listPackEntry(listPack)));
+            len--;
+            map.put(field, new TTLValue(ttl != 0 ? ttl : null, value));
+        }
+        int lpend = listPack.read(); // lp-end
+        if (lpend != 255) {
+            throw new AssertionError("listpack expect 255 but " + lpend);
+        }
+        return (T) map;
     }
 
     @Override

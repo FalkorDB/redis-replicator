@@ -30,10 +30,17 @@ public class XTrimCommand extends GenericKeyCommand {
     private MaxLen maxLen;
     private MinId minId;
     private Limit limit;
+    private DeletionPolicy policy;
 
     public XTrimCommand() {
     }
-
+    
+    /**
+     * @param key key
+     * @param maxLen maxLen
+     * @deprecated by {@link #XTrimCommand(byte[], MaxLen, MinId, Limit, DeletionPolicy)}
+     */
+    @Deprecated
     public XTrimCommand(byte[] key, MaxLen maxLen) {
         this(key, maxLen, null, null);
     }
@@ -44,14 +51,45 @@ public class XTrimCommand extends GenericKeyCommand {
      * @param maxLen maxLen
      * @param minId minId
      * @param limit limit
+     * @deprecated by {@link #XTrimCommand(byte[], MaxLen, MinId, Limit, DeletionPolicy)}
      */
+    @Deprecated
     public XTrimCommand(byte[] key, MaxLen maxLen, MinId minId, Limit limit) {
+        this(key, maxLen, minId, limit, null);
+    }
+    
+    /**
+     * @since 3.10.0
+     * @param key key
+     * @param maxLen maxLen
+     * @param minId minId
+     * @param limit limit
+     * @param policy deletion policy
+     */
+    public XTrimCommand(byte[] key, MaxLen maxLen, MinId minId, Limit limit, DeletionPolicy policy) {
         super(key);
         this.maxLen = maxLen;
         this.minId = minId;
         this.limit = limit;
+        this.policy = policy;
     }
-
+    
+    /**
+     * @return policy
+     * @since 3.10.0
+     */
+    public DeletionPolicy getPolicy() {
+        return policy;
+    }
+    
+    /**
+     * @param policy
+     * @since 3.10.0
+     */
+    public void setPolicy(DeletionPolicy policy) {
+        this.policy = policy;
+    }
+    
     public MaxLen getMaxLen() {
         return maxLen;
     }
