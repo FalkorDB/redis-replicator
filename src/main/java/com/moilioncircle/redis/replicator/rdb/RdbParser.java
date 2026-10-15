@@ -130,6 +130,14 @@ public class RdbParser {
      * <p>
      * | $hashmetadata);      (*Introduced in rdb version 12*)
      * <p>
+     * | $streamlistpacks4);    (*Introduced in rdb version 13*)
+     * <p>
+     * | $streamlistpacks5);    (*Introduced in rdb version 14*)
+     * <p>
+     * | $array);               (*Introduced in rdb version 14*)
+     * <p>
+     * | $hashtemplate);        (*Introduced in rdb version 15*)
+     * <p>
      * @return read bytes
      * @throws IOException when read timeout
      */
@@ -193,6 +201,12 @@ public class RdbParser {
                     break;
                 case RDB_OPCODE_SLOT_INFO:
                     slot = rdbVisitor.applySlotInfo(in, version);
+                    break;
+                case RDB_OPCODE_HASH_TEMPLATE:
+                    event = rdbVisitor.applyHashTemplate(in, version);
+                    break;
+                case RDB_OPCODE_KEY_META:
+                    event = rdbVisitor.applyKeyMeta(in, version, kv);
                     break;
                 case RDB_OPCODE_EOF:
                     long checksum = rdbVisitor.applyEof(in, version);
@@ -265,6 +279,24 @@ public class RdbParser {
                     break;
                 case RDB_TYPE_STREAM_LISTPACKS_4:
                     event = rdbVisitor.applyStreamListPacks4(in, version, kv);
+                    break;
+                case RDB_TYPE_STREAM_LISTPACKS_5:
+                    event = rdbVisitor.applyStreamListPacks5(in, version, kv);
+                    break;
+                case RDB_TYPE_ARRAY:
+                    event = rdbVisitor.applyArray(in, version, kv);
+                    break;
+                case RDB_TYPE_HASH_TMPL_LP:
+                    event = rdbVisitor.applyHashTemplateListPack(in, version, kv);
+                    break;
+                case RDB_TYPE_HASH_TMPL_LP_REF:
+                    event = rdbVisitor.applyHashTemplateListPackRef(in, version, kv);
+                    break;
+                case RDB_TYPE_HASH_TMPL_ARRAY:
+                    event = rdbVisitor.applyHashTemplateArray(in, version, kv);
+                    break;
+                case RDB_TYPE_HASH_TMPL_ARRAY_REF:
+                    event = rdbVisitor.applyHashTemplateArrayRef(in, version, kv);
                     break;
                 case RDB_TYPE_HASH_2:
                     event = rdbVisitor.applyHash2(in, version, kv);

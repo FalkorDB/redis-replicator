@@ -39,7 +39,9 @@ public enum Flavor implements FlavorSupport {
         @Override
         public int resolveRdbVersion(String version) {
             version = version.substring(0, version.lastIndexOf('.'));
-            return REDIS_VERSIONS.get(version);
+            Integer rdbVersion = REDIS_VERSIONS.get(version);
+            // a redis release newer than this table writes at least the latest rdb version we know
+            return rdbVersion != null ? rdbVersion : RDB_VERSION;
         }
 
         @Override
@@ -88,7 +90,7 @@ public enum Flavor implements FlavorSupport {
         throw new AssertionError(flavor);
     }
 
-    private static final int RDB_VERSION = 13;
+    private static final int RDB_VERSION = 15;
     private static final int VALKEY_VERSION = 80;
     
     private static final Map<String, Integer> REDIS_VERSIONS = new HashMap<>();
@@ -105,10 +107,13 @@ public enum Flavor implements FlavorSupport {
         REDIS_VERSIONS.put("6.2", 9);
         REDIS_VERSIONS.put("7.0", 10);
         REDIS_VERSIONS.put("7.2", 11);
-        REDIS_VERSIONS.put("7.4", RDB_VERSION);
-        REDIS_VERSIONS.put("8.0", RDB_VERSION);
-        REDIS_VERSIONS.put("8.2", RDB_VERSION);
-        REDIS_VERSIONS.put("8.4", RDB_VERSION);
+        REDIS_VERSIONS.put("7.4", 12);
+        REDIS_VERSIONS.put("8.0", 12);
+        REDIS_VERSIONS.put("8.2", 12);
+        REDIS_VERSIONS.put("8.4", 12);
+        REDIS_VERSIONS.put("8.6", 13);
+        REDIS_VERSIONS.put("8.8", 14);
+        REDIS_VERSIONS.put("8.10", 15);
 
         // VALKEY_VERSIONS.put("7.2", 11);
         // VALKEY_VERSIONS.put("8.0", 11);

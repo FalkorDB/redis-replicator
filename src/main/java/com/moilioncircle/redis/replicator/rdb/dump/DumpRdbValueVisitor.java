@@ -23,7 +23,9 @@ import static com.moilioncircle.redis.replicator.util.CRC64.longToByteArray;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import com.moilioncircle.redis.replicator.Replicator;
@@ -37,6 +39,7 @@ import com.moilioncircle.redis.replicator.rdb.datatype.Module;
 import com.moilioncircle.redis.replicator.rdb.dump.datatype.DumpFunction;
 import com.moilioncircle.redis.replicator.rdb.module.ModuleParser;
 import com.moilioncircle.redis.replicator.rdb.skip.SkipRdbParser;
+import com.moilioncircle.redis.replicator.rdb.skip.SkipRdbValueVisitor;
 import com.moilioncircle.redis.replicator.util.ByteArray;
 import com.moilioncircle.redis.replicator.util.ByteBuilder;
 import com.moilioncircle.redis.replicator.util.Strings;
@@ -958,136 +961,249 @@ public class DumpRdbValueVisitor extends DefaultRdbValueVisitor {
     }
 
     @Override
-    @SuppressWarnings("resource")
     public <T> T applyStreamListPacks4(RedisInputStream in, int version) throws IOException {
-        if (this.version != -1 && this.version < 11 /* since redis rdb version 11 */) {
-            // downgrade to RDB_TYPE_STREAM_LISTPACKS
-            DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_STREAM_LISTPACKS, version);
-            replicator.addRawByteListener(listener);
+        return dumpStream(in, version, RDB_TYPE_STREAM_LISTPACKS_4);
+    }
+
+    @Override
+    public <T> T applyStreamListPacks5(RedisInputStream in, int version) throws IOException {
+        return dumpStream(in, version, RDB_TYPE_STREAM_LISTPACKS_5);
+    }
+
+    @Override
+    public <T> T applyArray(RedisInputStream in, int version) throws IOException {
+        // no older encoding to downgrade to: restoring needs redis 8.8+
+        DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_ARRAY, version);
+        replicator.addRawByteListener(listener);
+        try {
+            new SkipRdbValueVisitor(replicator).applyArray(in, version);
+        } finally {
+            replicator.removeRawByteListener(listener);
+        }
+        return (T) listener.getBytes();
+    }
+
+    @Override
+    public <T> T applyHashTemplateListPack(RedisInputStream in, int version) throws IOException {
+        if (hashTemplateDumpType(RDB_TYPE_HASH_TMPL_LP, this.version) == RDB_TYPE_HASH) {
+            return dumpHash(super.applyHashTemplateListPack(in, version), version);
+        }
+        DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_HASH_TMPL_LP, version);
+        replicator.addRawByteListener(listener);
+        try {
+            new SkipRdbValueVisitor(replicator).applyHashTemplateListPack(in, version);
+        } finally {
+            replicator.removeRawByteListener(listener);
+        }
+        return (T) listener.getBytes();
+    }
+
+    @Override
+    public <T> T applyHashTemplateListPackRef(RedisInputStream in, int version) throws IOException {
+        return dumpHash(super.applyHashTemplateListPackRef(in, version), version);
+    }
+
+    @Override
+    public <T> T applyHashTemplateArray(RedisInputStream in, int version) throws IOException {
+        if (hashTemplateDumpType(RDB_TYPE_HASH_TMPL_ARRAY, this.version) == RDB_TYPE_HASH) {
+            return dumpHash(super.applyHashTemplateArray(in, version), version);
+        }
+        DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_HASH_TMPL_ARRAY, version);
+        replicator.addRawByteListener(listener);
+        try {
+            new SkipRdbValueVisitor(replicator).applyHashTemplateArray(in, version);
+        } finally {
+            replicator.removeRawByteListener(listener);
+        }
+        return (T) listener.getBytes();
+    }
+
+    @Override
+    public <T> T applyHashTemplateArrayRef(RedisInputStream in, int version) throws IOException {
+        return dumpHash(super.applyHashTemplateArrayRef(in, version), version);
+    }
+
+    /**
+     * The value type a template hash is dumped as. RESTORE only accepts the self-contained forms
+     * (RDB_TYPE_HASH_TMPL_LP and RDB_TYPE_HASH_TMPL_ARRAY), and only since rdb version 15, so the
+     * RDB-file-only *_REF forms, and every form for an older target, are dumped as RDB_TYPE_HASH.
+     *
+     * @param type          the rdb type read from the source
+     * @param targetVersion the dump version, -1 means the source rdb version
+     * @return the dumped rdb type
+     * @since 3.12.0
+     */
+    public static int hashTemplateDumpType(int type, int targetVersion) {
+        boolean selfContained = type == RDB_TYPE_HASH_TMPL_LP || type == RDB_TYPE_HASH_TMPL_ARRAY;
+        if (selfContained && (targetVersion == -1 || targetVersion >= 15)) return type;
+        return RDB_TYPE_HASH;
+    }
+
+    /**
+     * The value type a stream is dumped as, downgraded to the newest stream encoding the target reads.
+     *
+     * @param type          the rdb type read from the source
+     * @param targetVersion the dump version, -1 means the source rdb version
+     * @return the dumped rdb type
+     * @since 3.12.0
+     */
+    public static int streamDumpType(int type, int targetVersion) {
+        if (targetVersion == -1 || targetVersion >= 14) return type;
+        if (targetVersion >= 13) return Math.min(type, RDB_TYPE_STREAM_LISTPACKS_4);
+        if (targetVersion >= 11) return Math.min(type, RDB_TYPE_STREAM_LISTPACKS_3);
+        return RDB_TYPE_STREAM_LISTPACKS;
+    }
+
+    /**
+     * Dump the PEL and consumers of a RDB_TYPE_STREAM_LISTPACKS_5 consumer group for an older target.
+     * Older encodings have no XNACK zone, and redis before 8.8 expects every pending entry to have a
+     * consumer, so the NACKed entries are left out of the group PEL. They come after the consumers,
+     * so the PEL entries and the consumers are buffered until then.
+     */
+    protected void dumpStreamGroupWithoutNacks(RedisInputStream in, DefaultRawByteListener listener, boolean v1) throws IOException {
+        replicator.removeRawByteListener(listener);
+        SkipRdbParser skipParser = new SkipRdbParser(in);
+        Map<ByteBuffer, byte[]> pel = new LinkedHashMap<>(); // by stream id
+        long groupPel = skipParser.rdbLoadLen().len;
+        while (groupPel-- > 0) {
+            ByteBuilder entry = ByteBuilder.allocate(32);
+            RawByteListener capture = entry::put;
+            replicator.addRawByteListener(capture);
             try {
-                SkipRdbParser skipParser = new SkipRdbParser(in);
-                long listPacks = skipParser.rdbLoadLen().len;
-                while (listPacks-- > 0) {
-                    skipParser.rdbLoadPlainStringObject();
-                    skipParser.rdbLoadPlainStringObject();
-                }
-                skipParser.rdbLoadLen(); // length
-                skipParser.rdbLoadLen(); // lastId
-                skipParser.rdbLoadLen(); // lastId
-                replicator.removeRawByteListener(listener);
-                skipParser.rdbLoadLen(); // firstId
-                skipParser.rdbLoadLen(); // firstId
-                skipParser.rdbLoadLen(); // maxDeletedEntryId
-                skipParser.rdbLoadLen(); // maxDeletedEntryId
-                skipParser.rdbLoadLen(); // entriesAdded
-                replicator.addRawByteListener(listener);
-                long groupCount = skipParser.rdbLoadLen().len;
-                while (groupCount-- > 0) {
-                    skipParser.rdbLoadPlainStringObject();
-                    skipParser.rdbLoadLen();
-                    skipParser.rdbLoadLen();
-                    replicator.removeRawByteListener(listener);
-                    skipParser.rdbLoadLen(); // entriesRead
-                    replicator.addRawByteListener(listener);
-                    long groupPel = skipParser.rdbLoadLen().len;
-                    while (groupPel-- > 0) {
-                        in.skip(16);
-                        skipParser.rdbLoadMillisecondTime();
-                        skipParser.rdbLoadLen();
-                    }
-                    long consumerCount = skipParser.rdbLoadLen().len;
-                    while (consumerCount-- > 0) {
-                        skipParser.rdbLoadPlainStringObject();
-                        skipParser.rdbLoadMillisecondTime(); // seenTime
-                        replicator.removeRawByteListener(listener);
-                        skipParser.rdbLoadMillisecondTime(); // activeTime
-                        replicator.addRawByteListener(listener);
-                        long consumerPel = skipParser.rdbLoadLen().len;
-                        while (consumerPel-- > 0) {
-                            in.skip(16);
-                        }
-                    }
-                }
-                replicator.removeRawByteListener(listener);
-                // skip IDMP fields
-                skipParser.rdbLoadLen(); // idmp_duration
-                skipParser.rdbLoadLen(); // idmp_max_entries
-                long producers = skipParser.rdbLoadLen().len;
-                while (producers-- > 0) {
-                    skipParser.rdbLoadPlainStringObject(); // producer id
-                    long entries = skipParser.rdbLoadLen().len;
-                    while (entries-- > 0) {
-                        skipParser.rdbLoadPlainStringObject(); // iid
-                        skipParser.rdbLoadLen(); // stream id ms
-                        skipParser.rdbLoadLen(); // stream id seq
-                    }
-                }
-                skipParser.rdbLoadLen(); // iids_added
-                skipParser.rdbLoadLen(); // iids_duplicates
-                replicator.addRawByteListener(listener);
+                ByteBuffer id = ByteBuffer.wrap(in.readBytes(16).first());
+                skipParser.rdbLoadMillisecondTime(); // delivery time
+                skipParser.rdbLoadLen(); // delivery count
+                pel.put(id, entry.array());
             } finally {
-                replicator.removeRawByteListener(listener);
+                replicator.removeRawByteListener(capture);
             }
-            return (T) listener.getBytes();
-        } else {
-            DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_STREAM_LISTPACKS_4, version);
-            replicator.addRawByteListener(listener);
-            try {
-                SkipRdbParser skipParser = new SkipRdbParser(in);
-                long listPacks = skipParser.rdbLoadLen().len;
-                while (listPacks-- > 0) {
-                    skipParser.rdbLoadPlainStringObject();
-                    skipParser.rdbLoadPlainStringObject();
+        }
+        ByteBuilder consumers = ByteBuilder.allocate(size);
+        RawByteListener capture = consumers::put;
+        replicator.addRawByteListener(capture);
+        try {
+            long consumerCount = skipParser.rdbLoadLen().len;
+            while (consumerCount-- > 0) {
+                skipParser.rdbLoadPlainStringObject();
+                skipParser.rdbLoadMillisecondTime(); // seenTime
+                if (v1) replicator.removeRawByteListener(capture);
+                skipParser.rdbLoadMillisecondTime(); // activeTime
+                if (v1) replicator.addRawByteListener(capture);
+                long consumerPel = skipParser.rdbLoadLen().len;
+                while (consumerPel-- > 0) {
+                    in.skip(16);
                 }
-                skipParser.rdbLoadLen(); // length
-                skipParser.rdbLoadLen(); // lastId
-                skipParser.rdbLoadLen(); // lastId
-                skipParser.rdbLoadLen(); // firstId
-                skipParser.rdbLoadLen(); // firstId
-                skipParser.rdbLoadLen(); // maxDeletedEntryId
-                skipParser.rdbLoadLen(); // maxDeletedEntryId
-                skipParser.rdbLoadLen(); // entriesAdded
-                long groupCount = skipParser.rdbLoadLen().len;
-                while (groupCount-- > 0) {
-                    skipParser.rdbLoadPlainStringObject();
-                    skipParser.rdbLoadLen();
-                    skipParser.rdbLoadLen();
-                    skipParser.rdbLoadLen(); // entriesRead
-                    long groupPel = skipParser.rdbLoadLen().len;
-                    while (groupPel-- > 0) {
-                        in.skip(16);
-                        skipParser.rdbLoadMillisecondTime();
-                        skipParser.rdbLoadLen();
-                    }
-                    long consumerCount = skipParser.rdbLoadLen().len;
-                    while (consumerCount-- > 0) {
-                        skipParser.rdbLoadPlainStringObject();
-                        skipParser.rdbLoadMillisecondTime(); // seenTime
-                        skipParser.rdbLoadMillisecondTime(); // activeTime
-                        long consumerPel = skipParser.rdbLoadLen().len;
-                        while (consumerPel-- > 0) {
-                            in.skip(16);
-                        }
-                    }
-                }
-                skipParser.rdbLoadLen(); // idmp_duration
-                skipParser.rdbLoadLen(); // idmp_max_entries
-                long producers = skipParser.rdbLoadLen().len;
-                while (producers-- > 0) {
-                    skipParser.rdbLoadPlainStringObject(); // producer id
-                    long entries = skipParser.rdbLoadLen().len;
-                    while (entries-- > 0) {
-                        skipParser.rdbLoadPlainStringObject(); // iid
-                        skipParser.rdbLoadLen(); // stream id ms
-                        skipParser.rdbLoadLen(); // stream id seq
-                    }
-                }
-                skipParser.rdbLoadLen(); // iids_added
-                skipParser.rdbLoadLen(); // iids_duplicates
-            } finally {
-                replicator.removeRawByteListener(listener);
             }
+        } finally {
+            replicator.removeRawByteListener(capture);
+        }
+        long nacked = skipParser.rdbLoadLen().len; // XNACK zone
+        while (nacked-- > 0) {
+            pel.remove(ByteBuffer.wrap(in.readBytes(16).first()));
+        }
+        listener.handle(new BaseRdbEncoder().rdbSaveLen(pel.size()));
+        for (byte[] entry : pel.values()) {
+            listener.handle(entry);
+        }
+        listener.handle(consumers.array());
+        replicator.addRawByteListener(listener);
+    }
+
+    protected <T> T dumpHash(Map<byte[], byte[]> map, int version) throws IOException {
+        BaseRdbEncoder encoder = new BaseRdbEncoder();
+        DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_HASH, version);
+        try (ByteBufferOutputStream out = new ByteBufferOutputStream(size)) {
+            listener.handle(encoder.rdbSaveLen(map.size()));
+            for (Map.Entry<byte[], byte[]> entry : map.entrySet()) {
+                encoder.rdbGenericSaveStringObject(new ByteArray(entry.getKey()), out);
+                encoder.rdbGenericSaveStringObject(new ByteArray(entry.getValue()), out);
+            }
+            listener.handle(out.toByteBuffer());
             return (T) listener.getBytes();
         }
+    }
+
+    /**
+     * Dump a RDB_TYPE_STREAM_LISTPACKS_4 or RDB_TYPE_STREAM_LISTPACKS_5 stream, dropping the fields
+     * the target encoding doesn't have.
+     */
+    protected <T> T dumpStream(RedisInputStream in, int version, int type) throws IOException {
+        int target = streamDumpType(type, this.version);
+        boolean v1 = target == RDB_TYPE_STREAM_LISTPACKS; // no first id, entries read or active time
+        DefaultRawByteListener listener = new DefaultRawByteListener((byte) target, version);
+        replicator.addRawByteListener(listener);
+        try {
+            SkipRdbParser skipParser = new SkipRdbParser(in);
+            long listPacks = skipParser.rdbLoadLen().len;
+            while (listPacks-- > 0) {
+                skipParser.rdbLoadPlainStringObject();
+                skipParser.rdbLoadPlainStringObject();
+            }
+            skipParser.rdbLoadLen(); // length
+            skipParser.rdbLoadLen(); // lastId
+            skipParser.rdbLoadLen(); // lastId
+            if (v1) replicator.removeRawByteListener(listener);
+            skipParser.rdbLoadLen(); // firstId
+            skipParser.rdbLoadLen(); // firstId
+            skipParser.rdbLoadLen(); // maxDeletedEntryId
+            skipParser.rdbLoadLen(); // maxDeletedEntryId
+            skipParser.rdbLoadLen(); // entriesAdded
+            if (v1) replicator.addRawByteListener(listener);
+            long groupCount = skipParser.rdbLoadLen().len;
+            while (groupCount-- > 0) {
+                skipParser.rdbLoadPlainStringObject();
+                skipParser.rdbLoadLen();
+                skipParser.rdbLoadLen();
+                if (v1) replicator.removeRawByteListener(listener);
+                skipParser.rdbLoadLen(); // entriesRead
+                if (v1) replicator.addRawByteListener(listener);
+                if (type >= RDB_TYPE_STREAM_LISTPACKS_5 && target < RDB_TYPE_STREAM_LISTPACKS_5) {
+                    dumpStreamGroupWithoutNacks(in, listener, v1);
+                    continue;
+                }
+                long groupPel = skipParser.rdbLoadLen().len;
+                while (groupPel-- > 0) {
+                    in.skip(16);
+                    skipParser.rdbLoadMillisecondTime();
+                    skipParser.rdbLoadLen();
+                }
+                long consumerCount = skipParser.rdbLoadLen().len;
+                while (consumerCount-- > 0) {
+                    skipParser.rdbLoadPlainStringObject();
+                    skipParser.rdbLoadMillisecondTime(); // seenTime
+                    if (v1) replicator.removeRawByteListener(listener);
+                    skipParser.rdbLoadMillisecondTime(); // activeTime
+                    if (v1) replicator.addRawByteListener(listener);
+                    long consumerPel = skipParser.rdbLoadLen().len;
+                    while (consumerPel-- > 0) {
+                        in.skip(16);
+                    }
+                }
+                if (type >= RDB_TYPE_STREAM_LISTPACKS_5) {
+                    long nacked = skipParser.rdbLoadLen().len; // XNACK zone
+                    while (nacked-- > 0) {
+                        in.skip(16);
+                    }
+                }
+            }
+            if (target < RDB_TYPE_STREAM_LISTPACKS_4) replicator.removeRawByteListener(listener);
+            skipParser.rdbLoadLen(); // idmp_duration
+            skipParser.rdbLoadLen(); // idmp_max_entries
+            long producers = skipParser.rdbLoadLen().len;
+            while (producers-- > 0) {
+                skipParser.rdbLoadPlainStringObject(); // producer id
+                long entries = skipParser.rdbLoadLen().len;
+                while (entries-- > 0) {
+                    skipParser.rdbLoadPlainStringObject(); // iid
+                    skipParser.rdbLoadLen(); // stream id ms
+                    skipParser.rdbLoadLen(); // stream id seq
+                }
+            }
+            skipParser.rdbLoadLen(); // iids_added
+            skipParser.rdbLoadLen(); // iids_duplicates
+        } finally {
+            replicator.removeRawByteListener(listener);
+        }
+        return (T) listener.getBytes();
     }
 }

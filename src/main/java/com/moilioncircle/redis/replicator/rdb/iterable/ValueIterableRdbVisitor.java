@@ -266,4 +266,52 @@ public class ValueIterableRdbVisitor extends DefaultRdbVisitor {
         o25.setValue(valueVisitor.applyHashListPackEx(in, version));
         return context.valueOf(o25);
     }
+
+    @Override
+    public Event applyHashTemplateListPack(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Iterator<Map.Entry<byte[], byte[]>>> o29 = new KeyStringValueMapEntryIterator();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        o29.setValueRdbType(RDB_TYPE_HASH_TMPL_LP);
+        o29.setKey(key);
+        o29.setValue(valueVisitor.applyHashTemplateListPack(in, version));
+        return context.valueOf(o29);
+    }
+
+    @Override
+    public Event applyHashTemplateListPackRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Iterator<Map.Entry<byte[], byte[]>>> o30 = new KeyStringValueMapEntryIterator();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        o30.setValueRdbType(RDB_TYPE_HASH_TMPL_LP_REF);
+        o30.setKey(key);
+        o30.setValue(valueVisitor.applyHashTemplateListPackRef(in, version));
+        return context.valueOf(o30);
+    }
+
+    @Override
+    public Event applyHashTemplateArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Iterator<Map.Entry<byte[], byte[]>>> o31 = new KeyStringValueMapEntryIterator();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        o31.setValueRdbType(RDB_TYPE_HASH_TMPL_ARRAY);
+        o31.setKey(key);
+        o31.setValue(valueVisitor.applyHashTemplateArray(in, version));
+        return context.valueOf(o31);
+    }
+
+    @Override
+    public Event applyHashTemplateArrayRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Iterator<Map.Entry<byte[], byte[]>>> o32 = new KeyStringValueMapEntryIterator();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        o32.setValueRdbType(RDB_TYPE_HASH_TMPL_ARRAY_REF);
+        o32.setKey(key);
+        o32.setValue(valueVisitor.applyHashTemplateArrayRef(in, version));
+        return context.valueOf(o32);
+    }
 }

@@ -39,6 +39,7 @@ import com.moilioncircle.redis.replicator.Replicator;
 import com.moilioncircle.redis.replicator.event.Event;
 import com.moilioncircle.redis.replicator.event.EventListener;
 import com.moilioncircle.redis.replicator.rdb.datatype.TTLValue;
+import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueArray;
 import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueModule;
 import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueStream;
 import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueString;
@@ -188,6 +189,9 @@ public class ValueIterableEventListener implements EventListener {
             listener.onEvent(replicator, module((KeyStringValueModule) kv, (Module) kv.getValue(), batch, true));
         } else if (kv instanceof KeyStringValueStream) {
             listener.onEvent(replicator, stream((KeyStringValueStream) kv, (Stream) kv.getValue(), batch, true));
+        } else if (kv instanceof KeyStringValueArray) {
+            // arrays are not batched
+            listener.onEvent(replicator, kv);
         }
     }
     

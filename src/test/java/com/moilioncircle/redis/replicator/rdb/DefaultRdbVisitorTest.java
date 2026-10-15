@@ -35,10 +35,10 @@ public class DefaultRdbVisitorTest {
     @Test
     public void testApplyVersion() throws IOException {
         DefaultRdbVisitor visitor = new DefaultRdbVisitor(null);
-        assertEquals(13, visitor.applyVersion(new RedisInputStream(new ByteArrayInputStream("0013".getBytes()))));
+        assertEquals(15, visitor.applyVersion(new RedisInputStream(new ByteArrayInputStream("0015".getBytes()))));
         
         try {
-            visitor.applyVersion(new RedisInputStream(new ByteArrayInputStream("0014".getBytes())));
+            visitor.applyVersion(new RedisInputStream(new ByteArrayInputStream("0016".getBytes())));
             fail();
         } catch (UnsupportedOperationException ignore) {
         }

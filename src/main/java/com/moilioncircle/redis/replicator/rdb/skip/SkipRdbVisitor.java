@@ -340,4 +340,52 @@ public class SkipRdbVisitor extends DefaultRdbVisitor {
         valueVisitor.applyStreamListPacks4(in, version);
         return null;
     }
+
+    @Override
+    public Event applyStreamListPacks5(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        SkipRdbParser parser = new SkipRdbParser(in);
+        parser.rdbLoadEncodedStringObject();
+        valueVisitor.applyStreamListPacks5(in, version);
+        return null;
+    }
+
+    @Override
+    public Event applyArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        SkipRdbParser parser = new SkipRdbParser(in);
+        parser.rdbLoadEncodedStringObject();
+        valueVisitor.applyArray(in, version);
+        return null;
+    }
+
+    @Override
+    public Event applyHashTemplateListPack(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        SkipRdbParser parser = new SkipRdbParser(in);
+        parser.rdbLoadEncodedStringObject();
+        valueVisitor.applyHashTemplateListPack(in, version);
+        return null;
+    }
+
+    @Override
+    public Event applyHashTemplateListPackRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        SkipRdbParser parser = new SkipRdbParser(in);
+        parser.rdbLoadEncodedStringObject();
+        valueVisitor.applyHashTemplateListPackRef(in, version);
+        return null;
+    }
+
+    @Override
+    public Event applyHashTemplateArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        SkipRdbParser parser = new SkipRdbParser(in);
+        parser.rdbLoadEncodedStringObject();
+        valueVisitor.applyHashTemplateArray(in, version);
+        return null;
+    }
+
+    @Override
+    public Event applyHashTemplateArrayRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        SkipRdbParser parser = new SkipRdbParser(in);
+        parser.rdbLoadEncodedStringObject();
+        valueVisitor.applyHashTemplateArrayRef(in, version);
+        return null;
+    }
 }

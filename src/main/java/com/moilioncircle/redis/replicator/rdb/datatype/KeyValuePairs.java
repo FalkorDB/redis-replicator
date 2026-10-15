@@ -33,6 +33,7 @@ import com.moilioncircle.redis.replicator.rdb.iterable.datatype.KeyStringValueZS
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
 
 /**
@@ -95,6 +96,13 @@ public class KeyValuePairs {
 
     public static KeyValuePair<byte[], Stream> stream(KeyValuePair<byte[], ?> raw, Stream value) {
         KeyStringValueStream kv = new KeyStringValueStream();
+        copy(raw, kv);
+        kv.setValue(value);
+        return kv;
+    }
+
+    public static KeyValuePair<byte[], NavigableMap<Long, byte[]>> array(KeyValuePair<byte[], ?> raw, NavigableMap<Long, byte[]> value) {
+        KeyStringValueArray kv = new KeyStringValueArray();
         copy(raw, kv);
         kv.setValue(value);
         return kv;

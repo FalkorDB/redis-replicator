@@ -52,7 +52,10 @@ public class DumpRdbVisitor extends DefaultRdbVisitor {
      *                       redis 5.0 ~ 6.2 = 9
      *                       redis 7.0 = 10
      *                       redis 7.2 = 11
-     *                       redis 7.4 ~ 8.2 = 12
+     *                       redis 7.4 ~ 8.4 = 12
+     *                       redis 8.6 = 13
+     *                       redis 8.8 = 14
+     *                       redis 8.10 = 15
      *                   -1 means dumped version = rdb version
      * @since 2.6.0
      */ 
@@ -400,13 +403,75 @@ public class DumpRdbVisitor extends DefaultRdbVisitor {
         BaseRdbParser parser = new BaseRdbParser(in);
         KeyValuePair<byte[], byte[]> o26 = new DumpKeyValuePair();
         byte[] key = parser.rdbLoadEncodedStringObject().first();
-        if (this.version != -1 && this.version < 11 /* since redis rdb version 11 */) {
-            o26.setValueRdbType(RDB_TYPE_STREAM_LISTPACKS);
-        } else {
-            o26.setValueRdbType(RDB_TYPE_STREAM_LISTPACKS_4);
-        }
+        o26.setValueRdbType(DumpRdbValueVisitor.streamDumpType(RDB_TYPE_STREAM_LISTPACKS_4, this.version));
         o26.setKey(key);
         o26.setValue(valueVisitor.applyStreamListPacks4(in, version));
         return context.valueOf(o26);
+    }
+
+    @Override
+    public Event applyStreamListPacks5(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o27 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        o27.setValueRdbType(DumpRdbValueVisitor.streamDumpType(RDB_TYPE_STREAM_LISTPACKS_5, this.version));
+        o27.setKey(key);
+        o27.setValue(valueVisitor.applyStreamListPacks5(in, version));
+        return context.valueOf(o27);
+    }
+
+    @Override
+    public Event applyArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o28 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        o28.setValueRdbType(RDB_TYPE_ARRAY);
+        o28.setKey(key);
+        o28.setValue(valueVisitor.applyArray(in, version));
+        return context.valueOf(o28);
+    }
+
+    @Override
+    public Event applyHashTemplateListPack(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o29 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        o29.setValueRdbType(DumpRdbValueVisitor.hashTemplateDumpType(RDB_TYPE_HASH_TMPL_LP, this.version));
+        o29.setKey(key);
+        o29.setValue(valueVisitor.applyHashTemplateListPack(in, version));
+        return context.valueOf(o29);
+    }
+
+    @Override
+    public Event applyHashTemplateListPackRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o30 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        o30.setValueRdbType(DumpRdbValueVisitor.hashTemplateDumpType(RDB_TYPE_HASH_TMPL_LP_REF, this.version));
+        o30.setKey(key);
+        o30.setValue(valueVisitor.applyHashTemplateListPackRef(in, version));
+        return context.valueOf(o30);
+    }
+
+    @Override
+    public Event applyHashTemplateArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o31 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        o31.setValueRdbType(DumpRdbValueVisitor.hashTemplateDumpType(RDB_TYPE_HASH_TMPL_ARRAY, this.version));
+        o31.setKey(key);
+        o31.setValue(valueVisitor.applyHashTemplateArray(in, version));
+        return context.valueOf(o31);
+    }
+
+    @Override
+    public Event applyHashTemplateArrayRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], byte[]> o32 = new DumpKeyValuePair();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+        o32.setValueRdbType(DumpRdbValueVisitor.hashTemplateDumpType(RDB_TYPE_HASH_TMPL_ARRAY_REF, this.version));
+        o32.setKey(key);
+        o32.setValue(valueVisitor.applyHashTemplateArrayRef(in, version));
+        return context.valueOf(o32);
     }
 }
