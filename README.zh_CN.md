@@ -72,7 +72,7 @@
 [![Hex.pm](https://img.shields.io/hexpm/l/plug.svg?maxAge=2592000)](https://github.com/leonchen83/redis-replicator/blob/master/LICENSE)
 [![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg?style=flat-square)](./ANTI-996-LICENSE_CN)  
   
-Redis Replicator是一款RDB解析以及AOF解析的工具. 此工具完整实现了Redis Replication协议. 支持SYNC, PSYNC, PSYNC2等三种同步命令. 还支持远程RDB文件备份以及数据同步等功能. 此文中提到的 `命令` 特指Redis中的写(比如 `set`,`hmset`)命令，不包括读命令(比如 `get`,`hmget`), 支持的redis版本范围从2.6到8.4.x  
+Redis Replicator是一款RDB解析以及AOF解析的工具. 此工具完整实现了Redis Replication协议. 支持SYNC, PSYNC, PSYNC2等三种同步命令. 还支持远程RDB文件备份以及数据同步等功能. 此文中提到的 `命令` 特指Redis中的写(比如 `set`,`hmset`)命令，不包括读命令(比如 `get`,`hmget`), 支持的redis版本范围从2.6到8.10.x  
 
 ## 1.2. QQ讨论组  
   
@@ -87,16 +87,18 @@ Redis Replicator是一款RDB解析以及AOF解析的工具. 此工具完整实�
 编译最低jdk版本 jdk9+  
 运行最低jdk版本 jdk8+  
 maven-3.3.1+  
-redis 2.6 - 8.4  
+redis 2.6 - 8.10  
 
 ## 2.2. Maven依赖  
 ```xml  
     <dependency>
         <groupId>com.moilioncircle</groupId>
         <artifactId>redis-replicator</artifactId>
-        <version>3.11.0</version>
+        <version>3.12.0-falkordb</version>
     </dependency>
 ```
+
+`3.12.0-falkordb` 由本 fork 构建, 未发布到 Maven Central: 请先从源码安装 (见 2.3).
 
 ## 2.3. 安装源码到本地maven仓库  
   

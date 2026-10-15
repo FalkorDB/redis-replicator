@@ -22,10 +22,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -40,7 +43,10 @@ import com.moilioncircle.redis.replicator.FileType;
 import com.moilioncircle.redis.replicator.Flavor;
 import com.moilioncircle.redis.replicator.RedisReplicator;
 import com.moilioncircle.redis.replicator.Replicator;
+import com.moilioncircle.redis.replicator.event.Event;
 import com.moilioncircle.redis.replicator.event.PostRdbSyncEvent;
+import com.moilioncircle.redis.replicator.io.RedisInputStream;
+import com.moilioncircle.redis.replicator.rdb.datatype.ContextKeyValuePair;
 import com.moilioncircle.redis.replicator.rdb.datatype.ExpiredType;
 import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueArray;
 import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueString;
@@ -85,6 +91,27 @@ public class RdbV15ParserTest {
             map.put(Strings.toString(e.getKey()), Strings.toString(e.getValue()));
         }
         return map;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Long, String> array(KeyValuePair<?, ?> kv) {
+        Map<Long, String> array = new java.util.LinkedHashMap<>();
+        for (Map.Entry<Long, byte[]> e : ((NavigableMap<Long, byte[]>) kv.getValue()).entrySet()) {
+            array.put(e.getKey(), Strings.toString(e.getValue()));
+        }
+        return array;
+    }
+
+    private static Map<String, Map<String, String>> entries(KeyValuePair<?, ?> kv) {
+        Map<String, Map<String, String>> entries = new java.util.LinkedHashMap<>();
+        for (Stream.Entry entry : ((Stream) kv.getValue()).getEntries().values()) {
+            Map<String, String> fields = new HashMap<>();
+            for (Map.Entry<byte[], byte[]> f : entry.getFields().entrySet()) {
+                fields.put(Strings.toString(f.getKey()), Strings.toString(f.getValue()));
+            }
+            entries.put(entry.getId().toString(), fields);
+        }
+        return entries;
     }
 
     @Test
@@ -180,11 +207,22 @@ public class RdbV15ParserTest {
     @Test
     public void testDumpVisitor() throws IOException {
         Map<String, KeyValuePair<?, ?>> expected = parse(replicator());
-        for (int version : new int[] {-1, 15, 13, 11, 9}) {
+        for (int version : new int[] {-1, 15, 14, 13, 11, 9}) {
             Replicator r = replicator();
-            r.setRdbVisitor(new DumpRdbVisitor(r, version));
+            boolean arrays = version == -1 || version >= 14;
+            if (arrays) {
+                r.setRdbVisitor(new DumpRdbVisitor(r, version));
+            } else {
+                // arrays can't be dumped for these targets, see testDumpArrayForOldTarget
+                r.setRdbVisitor(new DumpRdbVisitor(r, version) {
+                    @Override
+                    public Event applyArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+                        return new SkipRdbVisitor(r, new SkipRdbValueVisitor(r)).applyArray(in, version, context);
+                    }
+                });
+            }
             Map<String, KeyValuePair<?, ?>> dumps = parse(r);
-            assertEquals(13, dumps.size());
+            assertEquals(arrays ? 13 : 12, dumps.size());
             DefaultDumpValueParser parser = new DefaultDumpValueParser(r);
             for (Map.Entry<String, KeyValuePair<?, ?>> e : dumps.entrySet()) {
                 DumpKeyValuePair dump = (DumpKeyValuePair) e.getValue();
@@ -195,11 +233,12 @@ public class RdbV15ParserTest {
                 KeyValuePair<?, ?> kv = parser.parse(dump);
                 KeyValuePair<?, ?> want = expected.get(e.getKey());
                 if (want instanceof KeyStringValueArray) {
-                    assertEquals(((Map<?, ?>) want.getValue()).size(), ((Map<?, ?>) kv.getValue()).size());
+                    assertEquals(array(want), array(kv));
                 } else if (want.getValue() instanceof Map) {
                     assertEquals(hash(want), hash(kv));
                 } else if (want.getValue() instanceof Stream) {
                     assertEquals(((Stream) want.getValue()).getLength(), ((Stream) kv.getValue()).getLength());
+                    assertEquals(entries(want), entries(kv));
                 }
             }
             // RESTORE rejects the RDB-file-only *_REF forms
@@ -220,6 +259,30 @@ public class RdbV15ParserTest {
                 for (Stream.Nack nack : group.getPendingEntries().values()) assertNotNull(nack.getConsumer());
                 assertEquals(2, group.getConsumers().get(0).getPendingEntries().size());
             }
+        }
+    }
+
+    @Test
+    public void testDumpArrayForOldTarget() throws IOException {
+        Replicator r = replicator();
+        r.setRdbVisitor(new DumpRdbVisitor(r, 13));
+        try {
+            r.open();
+            fail();
+        } catch (UnsupportedOperationException e) {
+            assertTrue(e.getMessage().contains("RDB_TYPE_ARRAY"));
+        }
+    }
+
+    @Test
+    public void testArraySerializable() throws Exception {
+        KeyValuePair<?, ?> arr = parse(replicator()).get("arr");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(arr);
+        }
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            assertEquals(array(arr), array((KeyValuePair<?, ?>) in.readObject()));
         }
     }
 
@@ -256,6 +319,25 @@ public class RdbV15ParserTest {
         });
         r.open();
         assertEquals(0, keys.get());
+    }
+
+    @Test
+    public void testListPackWithUnknownCount() throws IOException {
+        // 65535 means the count doesn't fit in 16 bits, so the entries are read up to lp-end
+        byte[] lp = {11, 0, 0, 0, (byte) 0xFF, (byte) 0xFF, 5, 1, 7, 1, (byte) 0xFF};
+        java.util.List<byte[]> entries = DefaultRdbValueVisitor.listPackEntries(lp);
+        assertEquals(2, entries.size());
+        assertEquals("5", Strings.toString(entries.get(0)));
+        assertEquals("7", Strings.toString(entries.get(1)));
+
+        // counts of 32768 and more are unsigned
+        ByteArrayOutputStream big = new ByteArrayOutputStream();
+        int count = 40000;
+        int total = 4 + 2 + count * 2 + 1;
+        big.write(new byte[] {(byte) total, (byte) (total >> 8), (byte) (total >> 16), 0, (byte) count, (byte) (count >> 8)});
+        for (int i = 0; i < count; i++) big.write(new byte[] {1, 1});
+        big.write(0xFF);
+        assertEquals(count, DefaultRdbValueVisitor.listPackEntries(big.toByteArray()).size());
     }
 
     @Test

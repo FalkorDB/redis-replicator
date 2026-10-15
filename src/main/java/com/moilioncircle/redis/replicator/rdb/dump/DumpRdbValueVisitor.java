@@ -972,7 +972,10 @@ public class DumpRdbValueVisitor extends DefaultRdbValueVisitor {
 
     @Override
     public <T> T applyArray(RedisInputStream in, int version) throws IOException {
-        // no older encoding to downgrade to: restoring needs redis 8.8+
+        if (this.version != -1 && this.version < 14 /* since redis rdb version 14 */) {
+            // no older encoding to downgrade to
+            throw new UnsupportedOperationException("can't dump RDB_TYPE_ARRAY for rdb version " + this.version + ": arrays need redis 8.8 (rdb version 14) or newer");
+        }
         DefaultRawByteListener listener = new DefaultRawByteListener((byte) RDB_TYPE_ARRAY, version);
         replicator.addRawByteListener(listener);
         try {

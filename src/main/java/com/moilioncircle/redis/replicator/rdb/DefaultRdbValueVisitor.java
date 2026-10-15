@@ -23,6 +23,7 @@ import com.moilioncircle.redis.replicator.Constants;
 import com.moilioncircle.redis.replicator.Replicator;
 import com.moilioncircle.redis.replicator.io.RedisInputStream;
 import com.moilioncircle.redis.replicator.rdb.datatype.Function;
+import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueArray;
 import com.moilioncircle.redis.replicator.rdb.datatype.Module;
 import com.moilioncircle.redis.replicator.rdb.datatype.Stream;
 import com.moilioncircle.redis.replicator.rdb.datatype.TTLValue;
@@ -810,7 +811,7 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
         if (parser.rdbLoadLen().len == 1) {
             parser.rdbLoadLen(); // insert_idx
         }
-        NavigableMap<Long, byte[]> array = new TreeMap<>(Long::compareUnsigned);
+        NavigableMap<Long, byte[]> array = new TreeMap<>(KeyStringValueArray.INDEX_ORDER);
         while (count-- > 0) {
             long index = parser.rdbLoadLen().len;
             int tag = (int) parser.rdbLoadLen().len;
@@ -936,10 +937,17 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
     protected static List<byte[]> listPackEntries(byte[] bytes) throws IOException {
         RedisInputStream listPack = new RedisInputStream(new ByteArray(bytes));
         listPack.skip(4); // total-bytes
-        int len = listPack.readInt(2);
+        int len = listPack.readInt(2) & 0xFFFF; // readInt sign-extends
         List<byte[]> entries = new ByteArrayList();
-        while (len-- > 0) {
-            entries.add(listPackEntry(listPack));
+        if (len == 65535) {
+            // the count doesn't fit in 16 bits: read the entries up to lp-end
+            while (listPack.available() > 1) {
+                entries.add(listPackEntry(listPack));
+            }
+        } else {
+            while (len-- > 0) {
+                entries.add(listPackEntry(listPack));
+            }
         }
         int lpend = listPack.read(); // lp-end
         if (lpend != 255) {

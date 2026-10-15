@@ -16,6 +16,8 @@
 
 package com.moilioncircle.redis.replicator.rdb.datatype;
 
+import java.io.Serializable;
+import java.util.Comparator;
 import java.util.NavigableMap;
 
 /**
@@ -27,4 +29,22 @@ import java.util.NavigableMap;
  */
 public class KeyStringValueArray extends KeyValuePair<byte[], NavigableMap<Long, byte[]>> {
     private static final long serialVersionUID = 1L;
+
+    /**
+     * Array indexes are unsigned 64 bit integers. Serializable, like the map that uses it.
+     */
+    public static final Comparator<Long> INDEX_ORDER = new IndexOrder();
+
+    private static final class IndexOrder implements Comparator<Long>, Serializable {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public int compare(Long a, Long b) {
+            return Long.compareUnsigned(a, b);
+        }
+
+        private Object readResolve() {
+            return INDEX_ORDER;
+        }
+    }
 }

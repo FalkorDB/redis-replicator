@@ -38,4 +38,5 @@ r rpush list a b c
 r sadd set a b
 r zadd zset 1 a 2 b
 r save
+mv "$out/dump.rdb" "$out/dump-v15.rdb"
 docker rm -f rdb-v15-gen >/dev/null

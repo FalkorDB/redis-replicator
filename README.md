@@ -72,7 +72,7 @@ Table of Contents ([中文说明](./README.zh_CN.md))
 [![Hex.pm](https://img.shields.io/hexpm/l/plug.svg?maxAge=2592000)](https://github.com/leonchen83/redis-replicator/blob/master/LICENSE)
 [![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg?style=flat-square)](./ANTI-996-LICENSE)
 
-Redis Replicator is an implementation of the Redis Replication protocol written in Java. It can parse, filter, and broadcast RDB and AOF events in real-time. It can also synchronize Redis data to a local cache or a database. In this document, `Command` refers to writable commands (e.g., `set`, `hmset`) and excludes readable commands (e.g., `get`, `hmget`). Supports Redis 8.4.x and older versions.
+Redis Replicator is an implementation of the Redis Replication protocol written in Java. It can parse, filter, and broadcast RDB and AOF events in real-time. It can also synchronize Redis data to a local cache or a database. In this document, `Command` refers to writable commands (e.g., `set`, `hmset`) and excludes readable commands (e.g., `get`, `hmget`). Supports Redis 8.10.x and older versions.
 
 ## 1.2. Chat with Author
 
@@ -87,16 +87,18 @@ Redis Replicator is an implementation of the Redis Replication protocol written 
 - **Compile:** JDK 9+
 - **Runtime:** JDK 8+
 - **Maven:** 3.3.1+
-- **Redis:** 2.6 - 8.4
+- **Redis:** 2.6 - 8.10
 
 ## 2.2. Maven Dependency
 ```xml
 <dependency>
     <groupId>com.moilioncircle</groupId>
     <artifactId>redis-replicator</artifactId>
-    <version>3.11.0</version>
+    <version>3.12.0-falkordb</version>
 </dependency>
 ```
+
+`3.12.0-falkordb` is built from this fork and isn't on Maven Central: install it from source first (see 2.3).
 
 ## 2.3. Install from Source Code
 
