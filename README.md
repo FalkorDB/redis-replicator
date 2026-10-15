@@ -105,7 +105,7 @@ Redis Replicator is an implementation of the Redis Replication protocol written 
 ```bash
 # Step 1: Install JDK 11+ for compilation
 # Step 2: Clone the repository
-git clone https://github.com/leonchen83/redis-replicator.git
+git clone https://github.com/FalkorDB/redis-replicator.git
 # Step 3: Navigate to the project directory
 cd redis-replicator
 # Step 4: Build the project

@@ -104,7 +104,7 @@ redis 2.6 - 8.10
   
 ```
     step 1: 安装 jdk-11.0.x
-    step 2: git clone https://github.com/leonchen83/redis-replicator.git
+    step 2: git clone https://github.com/FalkorDB/redis-replicator.git
     step 3: $cd ./redis-replicator 
     step 4: $mvn clean install package -DskipTests
 ```  
