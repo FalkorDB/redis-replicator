@@ -22,6 +22,7 @@ import static java.lang.Integer.parseInt;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
 import java.util.Set;
 
 import com.moilioncircle.redis.replicator.rdb.datatype.*;
@@ -577,7 +578,108 @@ public class DefaultRdbVisitor extends RdbVisitor {
         return context.valueOf(o26);
     }
     
-    protected ModuleParser<? extends Module> lookupModuleParser(String moduleName, int moduleVersion) {
+@Override
+    @SuppressWarnings("resource")
+    public Event applyStreamListPacks5(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Stream> o27 = new KeyStringValueStream();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        Stream stream = valueVisitor.applyStreamListPacks5(in, version);
+        o27.setValueRdbType(RDB_TYPE_STREAM_LISTPACKS_5);
+        o27.setValue(stream);
+        o27.setKey(key);
+        return context.valueOf(o27);
+    }
+
+    @Override
+    public Event applyArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], NavigableMap<Long, byte[]>> o28 = new KeyStringValueArray();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        NavigableMap<Long, byte[]> array = valueVisitor.applyArray(in, version);
+        o28.setValueRdbType(RDB_TYPE_ARRAY);
+        o28.setValue(array);
+        o28.setKey(key);
+        return context.valueOf(o28);
+    }
+
+    @Override
+    public Event applyHashTemplateListPack(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Map<byte[], byte[]>> o29 = new KeyStringValueHash();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        ByteArrayMap map = valueVisitor.applyHashTemplateListPack(in, version);
+        o29.setValueRdbType(RDB_TYPE_HASH_TMPL_LP);
+        o29.setValue(map);
+        o29.setKey(key);
+        return context.valueOf(o29);
+    }
+
+    @Override
+    public Event applyHashTemplateListPackRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Map<byte[], byte[]>> o30 = new KeyStringValueHash();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        ByteArrayMap map = valueVisitor.applyHashTemplateListPackRef(in, version);
+        o30.setValueRdbType(RDB_TYPE_HASH_TMPL_LP_REF);
+        o30.setValue(map);
+        o30.setKey(key);
+        return context.valueOf(o30);
+    }
+
+    @Override
+    public Event applyHashTemplateArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Map<byte[], byte[]>> o31 = new KeyStringValueHash();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        ByteArrayMap map = valueVisitor.applyHashTemplateArray(in, version);
+        o31.setValueRdbType(RDB_TYPE_HASH_TMPL_ARRAY);
+        o31.setValue(map);
+        o31.setKey(key);
+        return context.valueOf(o31);
+    }
+
+    @Override
+    public Event applyHashTemplateArrayRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        BaseRdbParser parser = new BaseRdbParser(in);
+        KeyValuePair<byte[], Map<byte[], byte[]>> o32 = new KeyStringValueHash();
+        byte[] key = parser.rdbLoadEncodedStringObject().first();
+
+        ByteArrayMap map = valueVisitor.applyHashTemplateArrayRef(in, version);
+        o32.setValueRdbType(RDB_TYPE_HASH_TMPL_ARRAY_REF);
+        o32.setValue(map);
+        o32.setKey(key);
+        return context.valueOf(o32);
+    }
+
+    @Override
+    public Event applyHashTemplate(RedisInputStream in, int version) throws IOException {
+        valueVisitor.applyHashTemplate(in, version);
+        return null;
+    }
+
+    @Override
+    public Event applyKeyMeta(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        /*
+         * ----------------------------
+         * F3 $key-metadata            # module key metadata, written after the expire / eviction opcodes
+         * $value-type
+         * $string-encoded-name
+         * $encoded-value
+         * ----------------------------
+         */
+        valueVisitor.applyKeyMeta(in, version);
+        int valueType = applyType(in);
+        context.setValueRdbType(valueType);
+        return rdbLoadObject(in, version, context);
+    }
+
+        protected ModuleParser<? extends Module> lookupModuleParser(String moduleName, int moduleVersion) {
         return replicator.getModuleParser(moduleName, moduleVersion);
     }
 
@@ -635,6 +737,20 @@ public class DefaultRdbVisitor extends RdbVisitor {
                 return (KeyValuePair<?, ?>) applyStreamListPacks3(in, version, context);
             case RDB_TYPE_STREAM_LISTPACKS_4:
                 return (KeyValuePair<?, ?>) applyStreamListPacks4(in, version, context);
+            case RDB_TYPE_STREAM_LISTPACKS_5:
+                return (KeyValuePair<?, ?>) applyStreamListPacks5(in, version, context);
+            case RDB_TYPE_ARRAY:
+                return (KeyValuePair<?, ?>) applyArray(in, version, context);
+            case RDB_TYPE_HASH_TMPL_LP:
+                return (KeyValuePair<?, ?>) applyHashTemplateListPack(in, version, context);
+            case RDB_TYPE_HASH_TMPL_LP_REF:
+                return (KeyValuePair<?, ?>) applyHashTemplateListPackRef(in, version, context);
+            case RDB_TYPE_HASH_TMPL_ARRAY:
+                return (KeyValuePair<?, ?>) applyHashTemplateArray(in, version, context);
+            case RDB_TYPE_HASH_TMPL_ARRAY_REF:
+                return (KeyValuePair<?, ?>) applyHashTemplateArrayRef(in, version, context);
+            case RDB_OPCODE_KEY_META:
+                return (KeyValuePair<?, ?>) applyKeyMeta(in, version, context);
             case RDB_TYPE_HASH_2:
                 return (KeyValuePair<?, ?>) applyHash2(in, version, context);
             case RDB_TYPE_HASH_LISTPACK_EX:

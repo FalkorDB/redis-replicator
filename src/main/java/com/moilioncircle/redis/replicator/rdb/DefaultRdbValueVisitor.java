@@ -5,7 +5,9 @@ import static com.moilioncircle.redis.replicator.Constants.*;
 import static com.moilioncircle.redis.replicator.rdb.BaseRdbParser.StringHelper.listPackEntry;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +23,7 @@ import com.moilioncircle.redis.replicator.Constants;
 import com.moilioncircle.redis.replicator.Replicator;
 import com.moilioncircle.redis.replicator.io.RedisInputStream;
 import com.moilioncircle.redis.replicator.rdb.datatype.Function;
+import com.moilioncircle.redis.replicator.rdb.datatype.KeyStringValueArray;
 import com.moilioncircle.redis.replicator.rdb.datatype.Module;
 import com.moilioncircle.redis.replicator.rdb.datatype.Stream;
 import com.moilioncircle.redis.replicator.rdb.datatype.TTLValue;
@@ -44,6 +47,12 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
     protected static final Logger logger = LoggerFactory.getLogger(DefaultRdbValueVisitor.class);
 
     protected final Replicator replicator;
+
+    /*
+     * hash templates (since redis 8.10). an rdb file writes each template once, before the keys,
+     * and RDB_TYPE_HASH_TMPL_*_REF hashes refer to it by id.
+     */
+    protected Map<Long, List<byte[]>> hashTemplates = new HashMap<>();
 
     public DefaultRdbValueVisitor(final Replicator replicator) {
         this.replicator = replicator;
@@ -562,6 +571,11 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
     public <T> T applyStreamListPacks4(RedisInputStream in, int version) throws IOException {
         return applyStreamListPacks(in, version, Constants.RDB_TYPE_STREAM_LISTPACKS_4);
     }
+
+    @Override
+    public <T> T applyStreamListPacks5(RedisInputStream in, int version) throws IOException {
+        return applyStreamListPacks(in, version, Constants.RDB_TYPE_STREAM_LISTPACKS_5);
+    }
     
     @SuppressWarnings("resource")
     protected <T> T applyStreamListPacks(RedisInputStream in, int version, int type) throws IOException {
@@ -708,6 +722,14 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
                 consumers.add(consumer);
             }
         
+            if (type >= Constants.RDB_TYPE_STREAM_LISTPACKS_5) {
+                // XNACK zone: ids of group PEL entries that were released without a consumer
+                long nacked = parser.rdbLoadLen().len;
+                while (nacked-- > 0) {
+                    in.skip(16);
+                }
+            }
+        
             group.setName(groupName);
             group.setLastId(groupLastId);
             if (type >= Constants.RDB_TYPE_STREAM_LISTPACKS_2) {
@@ -746,5 +768,197 @@ public class DefaultRdbValueVisitor extends RdbValueVisitor {
         stream.setGroups(groups);
     
         return (T) stream;
+    }
+
+    @Override
+    public <T> T applyKeyMeta(RedisInputStream in, int version) throws IOException {
+        /*
+         * $num-classes, then for each class a 4 byte class spec (name, version and flags) followed by
+         * the module-encoded metadata value terminated by RDB_MODULE_OPCODE_EOF.
+         */
+        SkipRdbParser parser = new SkipRdbParser(in);
+        long classes = parser.rdbLoadLen().len;
+        while (classes-- > 0) {
+            in.skip(4); // class spec
+            parser.rdbLoadCheckModuleValue();
+        }
+        return null;
+    }
+
+    @Override
+    public <T> T applyHashTemplate(RedisInputStream in, int version) throws IOException {
+        /*
+         * $template-id $field-count $field1 ... $fieldN
+         */
+        BaseRdbParser parser = new BaseRdbParser(in);
+        long id = parser.rdbLoadLen().len;
+        long count = parser.rdbLoadLen().len;
+        List<byte[]> fields = new ByteArrayList();
+        while (count-- > 0) {
+            fields.add(parser.rdbLoadEncodedStringObject().first());
+        }
+        hashTemplates.put(id, fields);
+        return (T) fields;
+    }
+
+    @Override
+    public <T> T applyArray(RedisInputStream in, int version) throws IOException {
+        /*
+         * $count $has-insert-idx [$insert-idx] ($index $type-tag $value)*
+         */
+        BaseRdbParser parser = new BaseRdbParser(in);
+        long count = parser.rdbLoadLen().len;
+        if (parser.rdbLoadLen().len == 1) {
+            parser.rdbLoadLen(); // insert_idx
+        }
+        NavigableMap<Long, byte[]> array = new TreeMap<>(KeyStringValueArray.INDEX_ORDER);
+        while (count-- > 0) {
+            long index = parser.rdbLoadLen().len;
+            int tag = (int) parser.rdbLoadLen().len;
+            byte[] value;
+            switch (tag) {
+                case Constants.ARRAY_TAG_SDS:
+                case Constants.ARRAY_TAG_SMALLSTR:
+                    value = parser.rdbLoadEncodedStringObject().first();
+                    break;
+                case Constants.ARRAY_TAG_INT:
+                    value = String.valueOf(parser.rdbLoadMillisecondTime()).getBytes();
+                    break;
+                case Constants.ARRAY_TAG_FLOAT:
+                    value = formatDouble(parser.rdbLoadBinaryDoubleValue()).getBytes();
+                    break;
+                default:
+                    throw new AssertionError("unexpected array element type tag:" + tag);
+            }
+            array.put(index, value);
+        }
+        return (T) array;
+    }
+
+    @Override
+    public <T> T applyHashTemplateListPack(RedisInputStream in, int version) throws IOException {
+        /*
+         * $fields-format $fields $listpack (first entry is the template id)
+         */
+        BaseRdbParser parser = new BaseRdbParser(in);
+        List<byte[]> fields = loadHashTemplateFields(parser);
+        List<byte[]> values = listPackEntries(parser.rdbLoadPlainStringObject().first());
+        return (T) hashTemplateMap(fields, values.subList(1, values.size()));
+    }
+
+    @Override
+    public <T> T applyHashTemplateListPackRef(RedisInputStream in, int version) throws IOException {
+        /*
+         * $listpack (first entry is the template id)
+         */
+        BaseRdbParser parser = new BaseRdbParser(in);
+        List<byte[]> values = listPackEntries(parser.rdbLoadPlainStringObject().first());
+        long id = Long.parseLong(Strings.toString(values.get(0)));
+        return (T) hashTemplateMap(getHashTemplate(id), values.subList(1, values.size()));
+    }
+
+    @Override
+    public <T> T applyHashTemplateArray(RedisInputStream in, int version) throws IOException {
+        /*
+         * $fields-format $fields $value1 ... $valueN
+         */
+        BaseRdbParser parser = new BaseRdbParser(in);
+        List<byte[]> fields = loadHashTemplateFields(parser);
+        return (T) hashTemplateMap(fields, loadHashTemplateValues(parser, fields.size()));
+    }
+
+    @Override
+    public <T> T applyHashTemplateArrayRef(RedisInputStream in, int version) throws IOException {
+        /*
+         * $template-id $value1 ... $valueN
+         */
+        BaseRdbParser parser = new BaseRdbParser(in);
+        List<byte[]> fields = getHashTemplate(parser.rdbLoadLen().len);
+        return (T) hashTemplateMap(fields, loadHashTemplateValues(parser, fields.size()));
+    }
+
+    /**
+     * @return the hash templates read so far, by template id
+     * @since 3.12.0
+     */
+    public Map<Long, List<byte[]>> getHashTemplates() {
+        return hashTemplates;
+    }
+
+    /**
+     * Share the hash templates with another value visitor reading the same rdb, when a rdb visitor
+     * uses one value visitor for some keys and another for the rest.
+     *
+     * @param hashTemplates the hash templates, by template id
+     * @since 3.12.0
+     */
+    public void setHashTemplates(Map<Long, List<byte[]>> hashTemplates) {
+        this.hashTemplates = hashTemplates;
+    }
+
+    protected List<byte[]> getHashTemplate(long id) {
+        List<byte[]> fields = hashTemplates.get(id);
+        if (fields == null) {
+            throw new AssertionError("unknown hash template id:" + id);
+        }
+        return fields;
+    }
+
+    protected List<byte[]> loadHashTemplateFields(BaseRdbParser parser) throws IOException {
+        long format = parser.rdbLoadLen().len;
+        if (format == Constants.HASH_TMPL_FIELDS_LP) {
+            return listPackEntries(parser.rdbLoadPlainStringObject().first());
+        } else if (format == Constants.HASH_TMPL_FIELDS_RAW) {
+            long count = parser.rdbLoadLen().len;
+            return loadHashTemplateValues(parser, count);
+        }
+        throw new AssertionError("unexpected hash template fields format:" + format);
+    }
+
+    protected List<byte[]> loadHashTemplateValues(BaseRdbParser parser, long count) throws IOException {
+        List<byte[]> values = new ByteArrayList();
+        while (count-- > 0) {
+            values.add(parser.rdbLoadEncodedStringObject().first());
+        }
+        return values;
+    }
+
+    protected static ByteArrayMap hashTemplateMap(List<byte[]> fields, List<byte[]> values) {
+        if (fields.size() != values.size()) {
+            throw new AssertionError("hash template has " + fields.size() + " fields but " + values.size() + " values");
+        }
+        ByteArrayMap map = new ByteArrayMap();
+        for (int i = 0; i < fields.size(); i++) {
+            map.put(fields.get(i), values.get(i));
+        }
+        return map;
+    }
+
+    protected static List<byte[]> listPackEntries(byte[] bytes) throws IOException {
+        RedisInputStream listPack = new RedisInputStream(new ByteArray(bytes));
+        listPack.skip(4); // total-bytes
+        int len = listPack.readInt(2) & 0xFFFF; // readInt sign-extends
+        List<byte[]> entries = new ByteArrayList();
+        if (len == 65535) {
+            // the count doesn't fit in 16 bits: read the entries up to lp-end
+            while (listPack.available() > 1) {
+                entries.add(listPackEntry(listPack));
+            }
+        } else {
+            while (len-- > 0) {
+                entries.add(listPackEntry(listPack));
+            }
+        }
+        int lpend = listPack.read(); // lp-end
+        if (lpend != 255) {
+            throw new AssertionError("listpack expect 255 but " + lpend);
+        }
+        return entries;
+    }
+
+    protected static String formatDouble(double value) {
+        if (Double.isNaN(value)) return "nan";
+        if (Double.isInfinite(value)) return value > 0 ? "inf" : "-inf";
+        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
     }
 }

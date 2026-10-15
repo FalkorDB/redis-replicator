@@ -125,6 +125,16 @@ public class DefaultDumpValueParser implements DumpValueParser {
                     return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks2(in, 0));
                 case RDB_TYPE_STREAM_LISTPACKS_3:
                     return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks3(in, 0));
+                case RDB_TYPE_STREAM_LISTPACKS_4:
+                    return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks4(in, 0));
+                case RDB_TYPE_STREAM_LISTPACKS_5:
+                    return KeyValuePairs.stream(kv, valueVisitor.applyStreamListPacks5(in, 0));
+                case RDB_TYPE_ARRAY:
+                    return KeyValuePairs.array(kv, valueVisitor.applyArray(in, 0));
+                case RDB_TYPE_HASH_TMPL_LP:
+                    return KeyValuePairs.hash(kv, valueVisitor.applyHashTemplateListPack(in, 0));
+                case RDB_TYPE_HASH_TMPL_ARRAY:
+                    return KeyValuePairs.hash(kv, valueVisitor.applyHashTemplateArray(in, 0));
                 case RDB_TYPE_HASH_2:
                     return KeyValuePairs.ttlHash(kv, valueVisitor.applyHash2(in, 0));
                 case RDB_TYPE_HASH_LISTPACK_EX:

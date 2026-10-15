@@ -210,4 +210,36 @@ public abstract class RdbVisitor {
     public Event applyHashListPackEx(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
         throw new UnsupportedOperationException("must implement this method.");
     }
+
+    public Event applyHashTemplate(RedisInputStream in, int version) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
+    public Event applyStreamListPacks5(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
+    public Event applyArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
+    public Event applyHashTemplateListPack(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
+    public Event applyHashTemplateListPackRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
+    public Event applyHashTemplateArray(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
+    public Event applyHashTemplateArrayRef(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
+
+    public Event applyKeyMeta(RedisInputStream in, int version, ContextKeyValuePair context) throws IOException {
+        throw new UnsupportedOperationException("must implement this method.");
+    }
 }

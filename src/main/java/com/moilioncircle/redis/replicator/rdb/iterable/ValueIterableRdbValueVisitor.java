@@ -766,4 +766,32 @@ public class ValueIterableRdbValueVisitor extends DefaultRdbValueVisitor {
             }
         }
     }
+
+    /*
+     * template hashes have at most hash-max-template-entries fields, so they are parsed in one go.
+     */
+
+    @Override
+    public <T> T applyHashTemplateListPack(RedisInputStream in, int version) throws IOException {
+        Map<byte[], byte[]> map = super.applyHashTemplateListPack(in, version);
+        return (T) map.entrySet().iterator();
+    }
+
+    @Override
+    public <T> T applyHashTemplateListPackRef(RedisInputStream in, int version) throws IOException {
+        Map<byte[], byte[]> map = super.applyHashTemplateListPackRef(in, version);
+        return (T) map.entrySet().iterator();
+    }
+
+    @Override
+    public <T> T applyHashTemplateArray(RedisInputStream in, int version) throws IOException {
+        Map<byte[], byte[]> map = super.applyHashTemplateArray(in, version);
+        return (T) map.entrySet().iterator();
+    }
+
+    @Override
+    public <T> T applyHashTemplateArrayRef(RedisInputStream in, int version) throws IOException {
+        Map<byte[], byte[]> map = super.applyHashTemplateArrayRef(in, version);
+        return (T) map.entrySet().iterator();
+    }
 }

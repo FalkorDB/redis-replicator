@@ -1,3 +1,16 @@
+### 3.12.0-falkordb
+
+Support for redis 8.6.x, 8.8.x and 8.10.x (RDB versions 13, 14 and 15).  
+
+RDB
+1. Add support for Rdb opcode `RDB_OPCODE_KEY_META` (module key metadata is skipped).
+2. Add support for Rdb opcode `RDB_OPCODE_HASH_TEMPLATE`.
+3. Add support for Rdb event `RDB_TYPE_STREAM_LISTPACKS_5`.
+4. Add support for Rdb event `RDB_TYPE_ARRAY` (`KeyStringValueArray`).
+5. Add support for Rdb events `RDB_TYPE_HASH_TMPL_LP`, `RDB_TYPE_HASH_TMPL_LP_REF`, `RDB_TYPE_HASH_TMPL_ARRAY` and `RDB_TYPE_HASH_TMPL_ARRAY_REF` (`KeyStringValueHash`).
+6. `DumpRdbVisitor` dumps template hashes as `RDB_TYPE_HASH` when the target can't restore them, and downgrades streams to the newest encoding the target reads.
+7. `Flavor.REDIS.resolveRdbVersion` maps redis 7.4 ~ 8.4 to RDB version 12, and redis versions it doesn't know to the newest RDB version.
+
 ### 3.11.0
 
 Support for redis 8.4.x.  

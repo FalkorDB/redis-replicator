@@ -16,13 +16,14 @@
 
 package com.moilioncircle.redis.replicator.rdb.skip;
 
-import static com.moilioncircle.redis.replicator.Constants.MODULE_SET;
+import static com.moilioncircle.redis.replicator.Constants.*;
 
 import java.io.IOException;
 import java.util.NoSuchElementException;
 
 import com.moilioncircle.redis.replicator.Replicator;
 import com.moilioncircle.redis.replicator.io.RedisInputStream;
+import com.moilioncircle.redis.replicator.rdb.BaseRdbParser;
 import com.moilioncircle.redis.replicator.rdb.DefaultRdbValueVisitor;
 import com.moilioncircle.redis.replicator.rdb.datatype.Module;
 import com.moilioncircle.redis.replicator.rdb.module.ModuleParser;
@@ -398,5 +399,141 @@ public class SkipRdbValueVisitor extends DefaultRdbValueVisitor {
         skip.rdbLoadLen(); // iids_added
         skip.rdbLoadLen(); // iids_duplicates
         return null;
+    }
+
+    @Override
+    public <T> T applyStreamListPacks5(RedisInputStream in, int version) throws IOException {
+        SkipRdbParser skip = new SkipRdbParser(in);
+        long listPacks = skip.rdbLoadLen().len;
+        while (listPacks-- > 0) {
+            skip.rdbLoadPlainStringObject();
+            skip.rdbLoadPlainStringObject();
+        }
+        skip.rdbLoadLen(); // length
+        skip.rdbLoadLen(); // lastId
+        skip.rdbLoadLen(); // lastId
+        skip.rdbLoadLen(); // firstId
+        skip.rdbLoadLen(); // firstId
+        skip.rdbLoadLen(); // maxDeletedEntryId
+        skip.rdbLoadLen(); // maxDeletedEntryId
+        skip.rdbLoadLen(); // entriesAdded
+        long groupCount = skip.rdbLoadLen().len;
+        while (groupCount-- > 0) {
+            skip.rdbLoadPlainStringObject();
+            skip.rdbLoadLen();
+            skip.rdbLoadLen();
+            skip.rdbLoadLen(); // entriesRead
+            long groupPel = skip.rdbLoadLen().len;
+            while (groupPel-- > 0) {
+                in.skip(16);
+                skip.rdbLoadMillisecondTime();
+                skip.rdbLoadLen();
+            }
+            long consumerCount = skip.rdbLoadLen().len;
+            while (consumerCount-- > 0) {
+                skip.rdbLoadPlainStringObject();
+                skip.rdbLoadMillisecondTime(); // seenTime
+                skip.rdbLoadMillisecondTime(); // activeTime
+                long consumerPel = skip.rdbLoadLen().len;
+                while (consumerPel-- > 0) {
+                    in.skip(16);
+                }
+            }
+            long nacked = skip.rdbLoadLen().len; // XNACK zone
+            while (nacked-- > 0) {
+                in.skip(16);
+            }
+        }
+        skip.rdbLoadLen(); // idmp_duration
+        skip.rdbLoadLen(); // idmp_max_entries
+        long producers = skip.rdbLoadLen().len;
+        while (producers-- > 0) {
+            skip.rdbLoadPlainStringObject(); // producer id
+            long entries = skip.rdbLoadLen().len;
+            while (entries-- > 0) {
+                skip.rdbLoadPlainStringObject(); // iid
+                skip.rdbLoadLen(); // stream id ms
+                skip.rdbLoadLen(); // stream id seq
+            }
+        }
+        skip.rdbLoadLen(); // iids_added
+        skip.rdbLoadLen(); // iids_duplicates
+        return null;
+    }
+
+    @Override
+    public <T> T applyArray(RedisInputStream in, int version) throws IOException {
+        SkipRdbParser skip = new SkipRdbParser(in);
+        long count = skip.rdbLoadLen().len;
+        if (skip.rdbLoadLen().len == 1) {
+            skip.rdbLoadLen(); // insert_idx
+        }
+        while (count-- > 0) {
+            skip.rdbLoadLen(); // index
+            int tag = (int) skip.rdbLoadLen().len;
+            if (tag == ARRAY_TAG_INT) {
+                skip.rdbLoadMillisecondTime();
+            } else if (tag == ARRAY_TAG_FLOAT) {
+                skip.rdbLoadBinaryDoubleValue();
+            } else {
+                skip.rdbLoadPlainStringObject();
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public <T> T applyHashTemplateListPack(RedisInputStream in, int version) throws IOException {
+        SkipRdbParser skip = new SkipRdbParser(in);
+        skipHashTemplateFields(in, skip);
+        skip.rdbLoadPlainStringObject();
+        return null;
+    }
+
+    @Override
+    public <T> T applyHashTemplateListPackRef(RedisInputStream in, int version) throws IOException {
+        SkipRdbParser skip = new SkipRdbParser(in);
+        skip.rdbLoadPlainStringObject();
+        return null;
+    }
+
+    @Override
+    public <T> T applyHashTemplateArray(RedisInputStream in, int version) throws IOException {
+        SkipRdbParser skip = new SkipRdbParser(in);
+        long count = skipHashTemplateFields(in, skip);
+        while (count-- > 0) {
+            skip.rdbLoadPlainStringObject();
+        }
+        return null;
+    }
+
+    @Override
+    public <T> T applyHashTemplateArrayRef(RedisInputStream in, int version) throws IOException {
+        SkipRdbParser skip = new SkipRdbParser(in);
+        long count = getHashTemplate(skip.rdbLoadLen().len).size();
+        while (count-- > 0) {
+            skip.rdbLoadPlainStringObject();
+        }
+        return null;
+    }
+
+    /**
+     * skip the field names of a self-contained template hash.
+     *
+     * @return the number of fields
+     */
+    protected long skipHashTemplateFields(RedisInputStream in, SkipRdbParser skip) throws IOException {
+        long format = skip.rdbLoadLen().len;
+        if (format == HASH_TMPL_FIELDS_RAW) {
+            long count = skip.rdbLoadLen().len;
+            for (long i = 0; i < count; i++) {
+                skip.rdbLoadPlainStringObject();
+            }
+            return count;
+        } else if (format == HASH_TMPL_FIELDS_LP) {
+            BaseRdbParser parser = new BaseRdbParser(in);
+            return listPackEntries(parser.rdbLoadPlainStringObject().first()).size();
+        }
+        throw new AssertionError("unexpected hash template fields format:" + format);
     }
 }

@@ -63,6 +63,8 @@ public class Constants {
     /**
      * rdb protocol
      */
+    public static final int RDB_OPCODE_HASH_TEMPLATE = 242; /* since redis 8.10, one hash template record */
+    public static final int RDB_OPCODE_KEY_META = 243; /* since redis 8.6, key metadata (module metadata classes) */
     public static final int RDB_OPCODE_SLOT_INFO = 244; /* Individual slot info, such as slot id and size (cluster mode only). */
     public static final int RDB_OPCODE_FUNCTION = 246;
     public static final int RDB_OPCODE_FUNCTION2 = 245;
@@ -100,11 +102,31 @@ public class Constants {
     public static final int RDB_TYPE_STREAM_LISTPACKS_2 = 19;
     public static final int RDB_TYPE_SET_LISTPACK = 20; /* since redis 7.2 */
     public static final int RDB_TYPE_STREAM_LISTPACKS_3 = 21; /* since redis 7.2 */
-    public static final int RDB_TYPE_STREAM_LISTPACKS_4 = 26; /* since redis 8.0 / stream with IDMP */
+    public static final int RDB_TYPE_STREAM_LISTPACKS_4 = 26; /* since redis 8.6, stream with IDMP */
+    public static final int RDB_TYPE_STREAM_LISTPACKS_5 = 27; /* since redis 8.8, stream with XNACK */
+    public static final int RDB_TYPE_ARRAY = 28; /* since redis 8.8 */
+    public static final int RDB_TYPE_HASH_TMPL_LP = 29; /* since redis 8.10, DUMP form: [fields_fmt][fields][lp_blob] */
+    public static final int RDB_TYPE_HASH_TMPL_LP_REF = 30; /* since redis 8.10, RDB form: lp_blob, first entry is template id */
+    public static final int RDB_TYPE_HASH_TMPL_ARRAY = 31; /* since redis 8.10, DUMP form: [fields_fmt][fields][values] */
+    public static final int RDB_TYPE_HASH_TMPL_ARRAY_REF = 32; /* since redis 8.10, RDB form: [template id][values] */
     public static final int RDB_TYPE_HASH_2 = 22; /* valkey 9, hash with field-level expiration */
     public static final int RDB_TYPE_HASH_METADATA = 24; /* since redis 7.4 */
     public static final int RDB_TYPE_HASH_LISTPACK_EX = 25; /* since redis 7.4 */
     
+    /**
+     * Array element type tags
+     */
+    public static final int ARRAY_TAG_SDS = 0;
+    public static final int ARRAY_TAG_INT = 1;
+    public static final int ARRAY_TAG_FLOAT = 2;
+    public static final int ARRAY_TAG_SMALLSTR = 3;
+
+    /**
+     * Template hash field name formats (DUMP form)
+     */
+    public static final int HASH_TMPL_FIELDS_LP = 0;
+    public static final int HASH_TMPL_FIELDS_RAW = 1;
+
     /**
      * Module serialized values sub opcodes
      */
